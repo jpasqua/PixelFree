@@ -1,4 +1,4 @@
-![PixelFree Dark](/Users/joe/Library/CloudStorage/Dropbox/Dev/CSUMB/Capstone/PixelFree/backend/public/PixelFree Dark.png)
+![PixelFree Dark](public/PixelFreeDark.png)
 
 # PixelFree Backend
 
