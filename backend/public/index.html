@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PixelFree – Frontend Test</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <img
+        class="logo-img"
+        src="PixelFree.png"
+        alt="PixelFree"
+        width="2151"
+        height="439"
+        decoding="async"
+      />
+      <span class="sub">Frontend Test</span>
+    </div>
+    <div class="status">
+      <span id="status">Checking auth…</span>
+      <button id="loginBtn" hidden>Connect to Pixelfed</button>
+      <button id="logoutBtn" hidden>Logout</button>
+    </div>
+  </header>
+
+  <section class="controls">
+    <label class="field">
+      <span>Query</span>
+      <input id="queryInput" placeholder="e.g. #vacation or @alice@example.com" />
+      <small class="hint">Tip: start with <strong>#</strong> for hashtags or <strong>@</strong> for users</small>
+    </label>
+    <label class="field narrow">
+      <span>Count</span>
+      <input id="countInput" type="number" min="1" max="40" value="7" />
+    </label>
+    <button id="loadBtn" class="primary">Load Photos</button>
+  </section>
+
+  <main class="container">
+    <div id="loadingIndicator" class="loading">
+      <div class="spinner"></div>
+      <span>Loading images…</span>
+    </div>
+
+    <div id="imageGrid" class="grid"></div>
+
+    <div id="empty" class="empty" hidden>No photos yet. Try a tag above.</div>
+  </main>
+
+  <footer class="footer">
+    <small>Demo UI for login + fetch. Data from your Pixelfed instance.</small>
+  </footer>
+
+  <!-- Info Modal -->
+  <div id="infoModal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <button id="modalClose" class="modal-close" aria-label="Close">×</button>
+      <div id="modalContent" class="modal-content">
+        <!-- filled by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
