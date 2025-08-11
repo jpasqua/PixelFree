@@ -1,3 +1,5 @@
+![PixelFree Dark](backend/public/PixelFreeDark.png)
+
 # PixelFree
 
 An open-source, privacy-focused digital photo frame that displays photos from Pixelfed — a decentralized photo-sharing platform in the Fediverse.
