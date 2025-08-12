@@ -50,6 +50,24 @@ body {
   padding: 14px 18px;
 }
 
+/* Four equal columns for inputs + button */
+.controls .split.full-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 80px auto; /* Limit column is narrower */
+  gap: 12px;
+}
+
+.search-button-wrapper {
+  display: flex;
+  align-items: flex-end; /* Align Search button with inputs */
+}
+
+.controls input[type="text"],
+.controls input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .field {
   display: flex;
   flex-direction: column;

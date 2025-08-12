@@ -13,8 +13,6 @@
         class="logo-img"
         src="PixelFree.png"
         alt="PixelFree"
-        width="2151"
-        height="439"
         decoding="async"
       />
       <span class="sub">Frontend Test</span>
@@ -27,16 +25,41 @@
   </header>
 
   <section class="controls">
-    <label class="field">
-      <span>Query</span>
-      <input id="queryInput" placeholder="e.g. #vacation or @alice@example.com" />
-      <small class="hint">Tip: start with <strong>#</strong> for hashtags or <strong>@</strong> for users</small>
-    </label>
-    <label class="field narrow">
-      <span>Count</span>
-      <input id="countInput" type="number" min="1" max="40" value="7" />
-    </label>
-    <button id="loadBtn" class="primary">Load Photos</button>
+    <div class="row">
+      <div class="split full-row">
+        <div>
+          <label for="tagsInput">Tags (OR)</label>
+          <input
+            id="tagsInput"
+            type="text"
+            placeholder="#Italy, #France"
+            title="Enter one or more tags, separated by commas or spaces. You may include or omit “#”."
+          />
+        </div>
+        <div>
+          <label for="usersInput">Users (OR)</label>
+          <input
+            id="usersInput"
+            type="text"
+            placeholder="@joe@blow.com, @mary@lamb.org"
+            title="Enter one or more Fediverse usernames (acct format), separated by commas or spaces. You can also paste profile URLs."
+          />
+        </div>
+        <div>
+          <label for="limitInput">Limit</label>
+          <input id="limitInput" type="number" min="1" max="40" value="7" />
+        </div>
+        <div class="search-button-wrapper">
+          <label>&nbsp;</label> <!-- empty label for spacing -->
+          <button
+            id="searchBtn"
+            title="If both Tags and Users are provided, results will match (any of the tags) AND (any of the users)."
+          >
+            Search
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <main class="container">

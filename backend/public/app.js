@@ -1,3 +1,5 @@
+console.log('[PixelFree] app.js loaded');
+
 window.addEventListener('error', e => console.error('Global error:', e.error || e.message));
 
 const CAPTION_MAX_LENGTH = 60;
@@ -6,13 +8,15 @@ const CAPTION_MAX_LENGTH = 60;
 const statusEl   = document.getElementById('status');
 const loginBtn   = document.getElementById('loginBtn');
 const logoutBtn  = document.getElementById('logoutBtn');
-const loadBtn    = document.getElementById('loadBtn');
-const queryInput = document.getElementById('queryInput');
-const countInput = document.getElementById('countInput'); // optional
 
-const grid    = document.getElementById('imageGrid');      // required
-const loading = document.getElementById('loadingIndicator'); // required
-const empty   = document.getElementById('empty');          // optional
+const tagsInput  = document.getElementById('tagsInput');
+const usersInput = document.getElementById('usersInput');
+const limitInput = document.getElementById('limitInput');
+const searchBtn  = document.getElementById('searchBtn');
+
+const grid    = document.getElementById('imageGrid');        // required
+const loading = document.getElementById('loadingIndicator'); // optional spinner
+const empty   = document.getElementById('empty');            // optional empty-state
 
 // ===== Helpers =====
 async function getJSON(url, opts = {}) {
@@ -23,16 +27,43 @@ async function getJSON(url, opts = {}) {
 
 function setLoading(isLoading) {
   document.body.classList.toggle('is-loading', isLoading);
-  if (loadBtn) loadBtn.disabled = isLoading;
+  if (searchBtn) searchBtn.disabled = isLoading;
 }
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
+function splitList(str) {
+  return String(str || '')
+    .split(/[,\s]+/)          // commas or whitespace
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function normalizeTags(list) {
+  // strip leading '#' and trim
+  return list.map(t => t.replace(/^#/, '').trim()).filter(Boolean);
+}
+
+function normalizeAccts(list) {
+  // Accept @user@host or profile URLs; return acct (user@host)
+  return list
+    .map(s => s.trim())
+    .map(s => {
+      if (/^https?:\/\//i.test(s)) {
+        // try to extract acct from common profile URL patterns like https://host/@user
+        try {
+          const u = new URL(s);
+          const match = u.pathname.match(/\/@([^/]+)/);
+          if (match) return `${match[1]}@${u.hostname}`;
+        } catch { /* ignore */ }
+      }
+      return s.startsWith('@') ? s.slice(1) : s; // drop leading '@' if present
+    })
+    .filter(Boolean);
 }
 
 // ===== Auth =====
 async function checkAuth() {
   try {
+    statusEl && (statusEl.textContent = 'Checking auth...');
     const s = await getJSON('/api/auth/status');
     if (s.authenticated) {
       statusEl && (statusEl.textContent = 'Authenticated');
@@ -69,12 +100,12 @@ async function logout() {
   }
 }
 
-// ===== Photos =====
+// ===== Photos (rendering) =====
 function clearGrid() {
   if (grid) grid.innerHTML = '';
   if (empty) {
     empty.hidden = false;
-    empty.textContent = 'No photos yet. Try a tag and click “Load Photos”.';
+    empty.textContent = 'No photos yet. Enter tags and/or users, then click “Search”.';
   }
 }
 
@@ -106,7 +137,7 @@ function renderPhotos(photos) {
     link.appendChild(img);
     card.appendChild(link);
 
-    // 2) Replace date/open with caption (clickable)
+    // 2) Caption (clickable for details)
     const captionText = truncateText(htmlToText(p.caption || p.content || 'View details'), CAPTION_MAX_LENGTH);
     const caption = document.createElement('div');
     caption.className = 'caption';
@@ -132,7 +163,6 @@ function renderPhotos(photos) {
   grid.appendChild(frag);
 }
 
-
 // --- helpers for caption text ---
 const htmlToText = (html) => {
   const tmp = document.createElement('div');
@@ -146,6 +176,31 @@ const truncateText = (text, maxLength) => {
     ? text.slice(0, maxLength - 1) + '…'
     : text;
 };
+
+function getLimit() {
+  const v = Number(limitInput?.value || 7);
+  const n = Number.isFinite(v) ? v : 7;
+  return Math.max(1, Math.min(7, n));
+}
+
+function buildQueryBody() {
+  const tags  = normalizeTags(splitList(tagsInput?.value));
+  const accts = normalizeAccts(splitList(usersInput?.value));
+  const limit = getLimit();
+
+  if (!tags.length && !accts.length) {
+    alert('Please enter at least one tag or one user.');
+    return null;
+  }
+
+  if (tags.length && accts.length) {
+    return { type: 'compound', tags, users: { accts }, limit };
+  } else if (tags.length) {
+    return { type: 'tag', tags, limit };
+  } else {
+    return { type: 'user', accts, limit };
+  }
+}
 
 // --- Modal control ---
 const modal = document.getElementById('infoModal');
@@ -197,87 +252,32 @@ function formatLocation(loc) {
   return '—';
 }
 
-function normalizeAcctInput(raw) {
-  // Accept @user, @user@domain, or profile URLs; clean common copy/paste cases.
-  let s = String(raw).trim();
+// ===== Advanced query against /api/photos/query =====
+async function runSearch() {
+  const body = buildQueryBody();
+  if (!body) return;
 
-  // Strip leading @
-  if (s.startsWith('@')) s = s.slice(1);
-
-  // If it's a URL, try to parse common patterns and convert to acct form
-  try {
-    if (/^https?:\/\//i.test(s)) {
-      const u = new URL(s);
-      // e.g., https://mastodon.sdf.org/@icm
-      const m = u.pathname.match(/\/@([^/]+)/);
-      if (m) return `${m[1]}@${u.hostname}`;
-    }
-  } catch { /* ignore */ }
-
-  // If it looks remote but missing a dot in the domain, warn the user
-  if (s.includes('@')) {
-    const [, host] = s.split('@');
-    if (!host.includes('.')) {
-      throw new Error(`That looks like a remote handle, but the domain is incomplete: “@${s}”. Did you mean “@${s}.org”?`);
-    }
-  }
-  return s;
-}
-
-
-function buildPhotosQuery(countDefault = 7) {
-  const raw = (queryInput?.value || '').trim();
-  const count = Math.max(1, Math.min(40, Number(countInput?.value) || countDefault));
-
-  const qs = new URLSearchParams({ limit: String(count) });
-
-  if (!raw) {
-    // No query: let backend defaults apply
-    return qs.toString();
-  }
-
-  try {
-    if (raw.startsWith('#')) {
-      qs.set('type', 'tag');
-      qs.set('tag', raw.slice(1));
-      return qs.toString();
-    }
-
-    if (raw.startsWith('@')) {
-      const acct = normalizeAcctInput(raw);  // <- throws on invalid
-      qs.set('type', 'user');
-      qs.set('acct', acct);
-      return qs.toString();
-    }
-
-    alert('Please enter either a tag, starting with #, or a user, starting with @');
-    return null;
-  } catch (e) {
-    alert(e.message || 'Invalid query');
-    // optional: return focus to the field
-    if (queryInput) queryInput.focus();
-    return null;
-  }
-}
-
-async function fetchAndDisplayImages(defaultCount = 7) {
   setLoading(true);
-  grid.innerHTML = '';
   if (empty) empty.hidden = true;
+  if (grid) grid.innerHTML = '';
 
   try {
-    const qs = buildPhotosQuery(defaultCount);
-    if (qs == null) return; // abort quietly after alert
-    const photos = await getJSON('/api/photos?' + qs);
+    const res = await fetch('/api/photos/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
 
-    const normalized = Array.isArray(photos)
-      ? photos.map(x => (typeof x === 'string' ? { url: x, created_at: null, tags: [] } : x))
-      : [];
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || res.statusText);
+    }
 
-    renderPhotos(normalized);
-  } catch (err) {
-    console.error('Error fetching images:', err);
-    grid.innerHTML = `<p class="error">Failed to load photos.</p>`;
+    const photos = await res.json();
+    renderPhotos(Array.isArray(photos) ? photos : []);
+  } catch (e) {
+    console.error(e);
+    grid.innerHTML = '<p class="error">Search failed. See console for details.</p>';
   } finally {
     setLoading(false);
   }
@@ -286,14 +286,22 @@ async function fetchAndDisplayImages(defaultCount = 7) {
 // ===== Wire up events =====
 loginBtn  && loginBtn.addEventListener('click', login);
 logoutBtn && logoutBtn.addEventListener('click', logout);
-loadBtn   && loadBtn.addEventListener('click', () => fetchAndDisplayImages());
-queryInput && queryInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    fetchAndDisplayImages();
-  }
+searchBtn?.addEventListener('click', (e) => {
+  e.preventDefault();
+  runSearch().catch(console.error);
+});
+
+// Submit on Enter in any field
+[tagsInput, usersInput, limitInput].forEach(el => {
+  el?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runSearch().catch(console.error);
+    }
+  });
 });
 
 // ===== Launch =====
 setLoading(false);
 checkAuth();
+clearGrid(); // show initial hint
