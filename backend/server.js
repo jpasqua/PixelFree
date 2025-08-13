@@ -32,7 +32,7 @@ app.use(express.json());
 // TL;DR — Quick demo now, separate frontend later.
 app.use(express.static('public'));
 
-// --- Import stub modules ---
+// --- Import modules ---
 import * as auth from './modules/auth.js';
 import * as photoService from './modules/photoService.js';
 import * as cache from './modules/cache.js';
@@ -42,6 +42,9 @@ import * as photoFetcher from './services/photoFetcher.js';
 import { resolveAccountId } from './modules/accounts.js';
 import * as accounts from './modules/accounts.js';
 
+// NEW: error handling helpers + typed errors
+import { asyncHandler, errorMapper } from './utils/errorMapper.js';
+import { ValidationError } from './modules/errors.js';
 
 // --- API Routes ---
 
@@ -57,17 +60,12 @@ app.get('/api/login', (_req, res) => {
   res.json({ loginUrl });
 });
 
-app.get('/api/callback', async (req, res) => {
+app.get('/api/callback', asyncHandler(async (req, res) => {
   console.log('[API] GET /api/callback' /*, req.query */);
-  try {
-    await auth.handleCallback(req.query);   // exchanges code + saves .token.json
-    // Redirect somewhere useful: home or a small success page
-    res.redirect('/');                      // or res.redirect('/api/auth/status')
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Callback failed', detail: String(e) });
-  }
-});
+  await auth.handleCallback(req.query);   // exchanges code + saves .token.json
+  // Redirect somewhere useful: home or a small success page
+  res.redirect('/');                      // or res.redirect('/api/auth/status')
+}));
 
 app.get('/api/auth/status', (_req, res) => {
   console.log('[API] GET /api/auth/status');
@@ -80,52 +78,43 @@ app.post('/api/auth/logout', (_req, res) => {
   res.json({ ok: true });
 });
 
-// Photos
-app.get('/api/photos', async (req, res) => {
+// Photos (legacy/simple)
+app.get('/api/photos', asyncHandler(async (req, res) => {
   console.log('[API] GET /api/photos', req.query);
 
-  try {
-    const cfg = settings.getSettings();
-    let source = cfg.source; // default (e.g., tag)
-    let limit  = Math.min(Number(req.query.limit) || (cfg.sync?.fetchLimit ?? 20), 40);
+  const cfg = settings.getSettings();
+  let source = cfg.source; // default (e.g., tag)
+  const limit = Math.min(Number(req.query.limit) || (cfg.sync?.fetchLimit ?? 20), 40);
+  const type = String(req.query.type || '').trim();
 
-    const type = String(req.query.type || '');
+  if (type === 'tag' && typeof req.query.tag === 'string') {
+    source = { type: 'tag', tag: req.query.tag.trim() };
+  } else if (type === 'public') {
+    source = { type: 'public', localOnly: String(req.query.localOnly) === 'true' };
+  } else if (type === 'user') {
+    let accountId = req.query.accountId && String(req.query.accountId).trim();
+    const acct = req.query.acct && String(req.query.acct).trim();
 
-    if (type === 'tag' && typeof req.query.tag === 'string') {
-      source = { type: 'tag', tag: req.query.tag.trim() };
-    } else if (type === 'public') {
-      source = { type: 'public', localOnly: String(req.query.localOnly) === 'true' };
-    } else if (type === 'user') {
-      let accountId = req.query.accountId && String(req.query.accountId).trim();
-      const acct = req.query.acct && String(req.query.acct).trim();
-
-      if (!accountId) {
-        if (!acct) {
-          return res.status(400).json({ error: 'For type=user, provide accountId or acct.' });
-        }
-        accountId = await resolveAccountId(acct); // may throw → caught below
+    if (!accountId) {
+      if (!acct) {
+        throw new ValidationError('For type=user, provide accountId or acct.');
       }
-
-      source = { type: 'user', accountId };
+      // resolveAccountId now throws typed errors which bubble to errorMapper
+      accountId = await resolveAccountId(acct);
     }
-
-    const photos = await fetchPhotos({ limit, source });
-    res.json(photos);
-  } catch (e) {
-    console.error(e);
-    const msg = String(e.message || e);
-    const status = msg.startsWith('Unable to resolve acct') ? 400 : 500;
-      // Yuck! Don't depend on error message text!
-    res.status(status).json({ error: 'Failed to fetch photos', detail: msg });
+    source = { type: 'user', accountId };
   }
-});
+
+  const photos = await fetchPhotos({ limit, source });
+  res.json(photos);
+}));
 
 // Cache
-app.get('/api/cache/clear', async (_req, res) => {
+app.get('/api/cache/clear', asyncHandler(async (_req, res) => {
   console.log('[API] GET /api/cache/clear');
   await cache.clearCache();
   res.json({ status: 'Cache cleared' });
-});
+}));
 
 // Settings
 app.get('/api/settings', (_req, res) => {
@@ -140,61 +129,80 @@ app.post('/api/settings', (req, res) => {
 });
 
 // Health
-app.get('/api/health', async (_req, res) => {
+app.get('/api/health', asyncHandler(async (_req, res) => {
   const health = await (await import('./modules/health.js')).getHealth();
   res.json(health);
-});
+}));
 
+// Advanced multi-source query (tags/users with OR + AND) + partial success
+app.post('/api/photos/query', asyncHandler(async (req, res) => {
+  const body = req.body || {};
+  const limit = Math.min(Math.max(Number(body.limit) || 20, 1), 40);
 
-
-// Advanced multi-source query (tags/users with OR + AND)
-app.post('/api/photos/query', async (req, res) => {
-  try {
-    const body = req.body || {};
-    const limit = Math.min(Math.max(Number(body.limit)||20, 1), 40);
-
-    if (body.type === 'tag') {
-      const tags = Array.from(new Set((body.tags||[]).map(s => String(s).replace(/^#/, '').trim()).filter(Boolean)));
-      if (!tags.length) return res.status(400).json({ error: 'tags required' });
-      const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit });
-      return res.json(photos);
-    }
-
-    if (body.type === 'user') {
-      const providedIds = Array.isArray(body.accountIds) ? body.accountIds : [];
-      const accts = Array.isArray(body.accts) ? body.accts : [];
-      const ids = Array.from(new Set([
-        ...providedIds,
-        ...await accounts.resolveManyAccts(accts)
-      ].filter(Boolean)));
-      if (!ids.length) return res.status(400).json({ error: 'users required' });
-      const photos = await photoFetcher.getLatestPhotosForUsers(ids, { limit });
-      return res.json(photos);
-    }
-
-    if (body.type === 'compound') {
-      const tags = Array.from(new Set((body.tags||[]).map(s => String(s).replace(/^#/, '').trim()).filter(Boolean)));
-      const userAccts = (body.users && Array.isArray(body.users.accts)) ? body.users.accts : [];
-      const userIdsIn = (body.users && Array.isArray(body.users.accountIds)) ? body.users.accountIds : [];
-      const accountIds = Array.from(new Set([
-        ...userIdsIn,
-        ...await accounts.resolveManyAccts(userAccts)
-      ].filter(Boolean)));
-      if (!tags.length && !accountIds.length) {
-        return res.status(400).json({ error: 'tags or users required' });
-      }
-      const photos = await photoFetcher.getLatestPhotosCompound({ tags, accountIds }, { limit });
-      return res.json(photos);
-    }
-
-    return res.status(400).json({ error: 'unsupported query type' });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'query failed', detail: String(e?.message || e) });
+  if (body.type === 'tag') {
+    const tags = Array.from(new Set((body.tags || [])
+      .map(s => String(s).replace(/^#/, '').trim())
+      .filter(Boolean)));
+    if (!tags.length) throw new ValidationError('tags required');
+    const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit });
+    return res.json(photos);
   }
-});
+
+  if (body.type === 'user') {
+    const providedIds = Array.isArray(body.accountIds) ? body.accountIds : [];
+    const accts = Array.isArray(body.accts) ? body.accts : [];
+    const ids = [...providedIds];
+    const errors = [];
+
+    for (const a of accts) {
+      try {
+        ids.push(await resolveAccountId(a));
+      } catch (e) {
+        errors.push({ target: a, code: e.code || 'error', message: e.message });
+      }
+    }
+
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (!uniqueIds.length) throw new ValidationError('users required');
+
+    const photos = await photoFetcher.getLatestPhotosForUsers(uniqueIds, { limit });
+    return errors.length ? res.json({ photos, errors }) : res.json(photos);
+  }
+
+  if (body.type === 'compound') {
+    const tags = Array.from(new Set((body.tags || [])
+      .map(s => String(s).replace(/^#/, '').trim())
+      .filter(Boolean)));
+    const userAccts = (body.users && Array.isArray(body.users.accts)) ? body.users.accts : [];
+    const userIdsIn = (body.users && Array.isArray(body.users.accountIds)) ? body.users.accountIds : [];
+
+    const errors = [];
+    const accountIds = [...userIdsIn];
+    for (const a of userAccts) {
+      try {
+        accountIds.push(await resolveAccountId(a));
+      } catch (e) {
+        errors.push({ target: a, code: e.code || 'error', message: e.message });
+      }
+    }
+
+    const uniqueIds = Array.from(new Set(accountIds.filter(Boolean)));
+    if (!tags.length && !uniqueIds.length) {
+      throw new ValidationError('tags or users required');
+    }
+
+    const photos = await photoFetcher.getLatestPhotosCompound({ tags, accountIds: uniqueIds }, { limit });
+    return errors.length ? res.json({ photos, errors }) : res.json(photos);
+  }
+
+  throw new ValidationError('unsupported query type', { type: body.type });
+}));
+
 // --- Start server ---
 app.listen(PORT, () => {
   console.log(`✅ PixelFree backend listening at http://localhost:${PORT}`);
   console.log(`   Try http://localhost:${PORT}/`);
 });
+
+// Final error mapper (must be after all routes/middleware)
+app.use(errorMapper);

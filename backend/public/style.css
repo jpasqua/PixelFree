@@ -234,3 +234,42 @@ body.is-loading .grid {
   padding: 10px 12px;
   border-radius: 8px;
 }
+
+/* 
+  Accessible alert styles (WCAG AA compliant)
+  - High-contrast text against light backgrounds
+  - Color-coding follows common conventions (info=blue, warn=yellow, error=red)
+  - Matching border colors reinforce meaning
+  - Left accent border ensures alerts remain distinguishable for users 
+    with color vision deficiencies
+*/
+
+#notices > div {
+  padding: 10px 12px;
+  border: 1px solid;
+  border-left-width: 6px;   /* accent border */
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  max-width: 600px;
+  margin-left: 20px;
+  margin-top: 8px;
+}
+
+#notices > div.info {
+  background: #d0e7ff;   /* light blue */
+  color: #0b3d91;        /* dark navy */
+  border-color: #0b3d91;
+}
+
+#notices > div.warn {
+  background: #fff2cc;   /* light yellow */
+  color: #7a4f00;        /* dark brown */
+  border-color: #7a4f00;
+}
+
+#notices > div.error {
+  background: #fcdada;   /* light red */
+  color: #7a0000;        /* dark red */
+  border-color: #7a0000;
+}

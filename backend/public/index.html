@@ -28,7 +28,7 @@
     <div class="row">
       <div class="split full-row">
         <div>
-          <label for="tagsInput">Tags (OR)</label>
+          <label for="tagsInput">Any of these <strong>Tags</strong></label>
           <input
             id="tagsInput"
             type="text"
@@ -37,7 +37,7 @@
           />
         </div>
         <div>
-          <label for="usersInput">Users (OR)</label>
+          <label for="usersInput">from any of these <strong>Users</strong></label>
           <input
             id="usersInput"
             type="text"
@@ -61,6 +61,9 @@
       </div>
     </div>
   </section>
+
+  <!-- Message area lives right below the controls -->
+  <div id="notices" aria-live="polite"></div>
 
   <main class="container">
     <div id="loadingIndicator" class="loading">

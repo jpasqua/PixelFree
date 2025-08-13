@@ -60,6 +60,36 @@ function normalizeAccts(list) {
     .filter(Boolean);
 }
 
+function showNotice(message, kind = 'info') {
+  let c = document.getElementById('notices');
+  if (!c) {
+    // Fallback: inject right after controls if the placeholder doesn't exist
+    const controls = document.getElementById('controls') || document.querySelector('.controls');
+    c = document.createElement('div');
+    c.id = 'notices';
+    c.setAttribute('aria-live', 'polite');
+    if (controls && controls.parentElement) {
+      controls.insertAdjacentElement('afterend', c);
+    } else {
+      document.body.prepend(c);
+    }
+  }
+
+  const el = document.createElement('div');
+  el.className = `notice ${kind}`;
+  el.textContent = message;
+
+  // click-to-dismiss
+  el.style.cursor = 'pointer';
+  el.title = 'Click to dismiss';
+  el.addEventListener('click', () => el.remove());
+
+  c.appendChild(el);
+
+  // auto-remove after 8s
+  setTimeout(() => el.remove(), 8000);
+}
+
 // ===== Auth =====
 async function checkAuth() {
   try {
@@ -180,7 +210,7 @@ const truncateText = (text, maxLength) => {
 function getLimit() {
   const v = Number(limitInput?.value || 7);
   const n = Number.isFinite(v) ? v : 7;
-  return Math.max(1, Math.min(7, n));
+  return Math.max(1, Math.min(40, n));
 }
 
 function buildQueryBody() {
@@ -268,16 +298,64 @@ async function runSearch() {
       body: JSON.stringify(body),
     });
 
+    // Try to parse a structured payload no matter what
+    const payload = await res.json().catch(() => null);
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || res.statusText);
+      // Structured error from errorMapper: { error, code, status, details, correlationId }
+      if (payload && payload.code) {
+        const friendly = ({
+          validation_error: 'Problem with user or tag. Please review your input.',
+          not_found:        'We could not find one of the requested accounts.',
+          rate_limited:     'You’re doing that too quickly. Please try again shortly.',
+          upstream_error:   'The remote server had a problem. Try again later.',
+          internal_error:   'Something went wrong on our side.',
+        })[payload.code] || payload.error || res.statusText;
+
+        // Add more context if available (e.g., which acct failed)
+        if (payload.details?.acct) {
+          showNotice(`${friendly} (${payload.details.acct})`, 'error');
+        } else {
+          showNotice(friendly, 'error');
+        }
+      } else {
+        showNotice('Search failed. Please try again.', 'error');
+      }
+      return;
     }
 
-    const photos = await res.json();
+    // Success path: may be an array OR an object { photos, errors }
+    let photos = [];
+    let partialErrors = [];
+
+    if (Array.isArray(payload)) {
+      photos = payload;
+    } else if (payload && typeof payload === 'object') {
+      photos = Array.isArray(payload.photos) ? payload.photos : [];
+      partialErrors = Array.isArray(payload.errors) ? payload.errors : [];
+    }
+
     renderPhotos(Array.isArray(photos) ? photos : []);
+
+    // Surface any per-item errors politely (partial success)
+    if (partialErrors.length) {
+      const msg = partialErrors.slice(0, 3).map(e => {
+        // e: { target, code, message }
+        const short = ({
+          validation_error: 'invalid input',
+          not_found:        'not found',
+          rate_limited:     'rate limited',
+          upstream_error:   'upstream error',
+        })[e.code] || 'error';
+        return `${e.target || 'item'}: ${short}`;
+      }).join('; ');
+      const more = partialErrors.length > 3 ? ` (+${partialErrors.length - 3} more)` : '';
+      showNotice(`Some items were skipped: ${msg}${more}`, 'warn');
+    }
+
   } catch (e) {
     console.error(e);
-    grid.innerHTML = '<p class="error">Search failed. See console for details.</p>';
+    showNotice('Search failed. Please try again.', 'error');
   } finally {
     setLoading(false);
   }

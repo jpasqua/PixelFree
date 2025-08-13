@@ -1,4 +1,27 @@
-// Business logic to fetch photos from Pixelfed (normalize results)
+/**
+ * Photo Fetcher Service
+ *
+ * This module provides helper functions to fetch recent photo posts from a Pixelfed/Mastodon-compatible API.
+ * It supports queries by:
+ *   - One or more hashtags (OR logic between tags)
+ *   - One or more user accounts (OR logic between users)
+ *   - Both hashtags AND user accounts (AND logic between groups)
+ *
+ * Key points about the AND case (tags + users):
+ *   - Many federated servers (including Pixelfed and Mastodon) cannot natively filter a user's posts by tag
+ *     when the posts originate on a remote instance. Their "tag timeline" feature is incomplete across
+ *     federation boundaries, so you can miss results if you rely on it.
+ *   - To avoid this limitation, the AND case is implemented as:
+ *       1. Fetch recent posts from the given users (pulling more than the requested `limit` to allow filtering).
+ *       2. Filter locally by the given tags.
+ *       3. Sort results by creation date and return the requested number of posts.
+ *   - This ensures correctness at the cost of some extra network requests and local filtering work,
+ *     but avoids silently missing posts that match the tags.
+ *
+ * All fetch functions respect a configurable `limit` and attempt to normalize returned posts so the
+ * front end receives a consistent shape regardless of query type.
+ */
+
 import { get as apiGet } from '../api/pixelfedApi.js';
 import { getAccessToken } from '../modules/auth.js';
 
@@ -91,18 +114,19 @@ export async function getLatestPhotosForUsers(accountIds, opts) {
 }
 
 export async function getLatestPhotosCompound(input, opts) {
-  const tags = (input.tags || []).filter(Boolean);
+  const tags = (input.tags || []).filter(Boolean).map(s => String(s).replace(/^#/, '').toLowerCase());
   const users = (input.accountIds || []).filter(Boolean);
   const limit = clamp(Number(opts?.limit)||20, 1, 40);
 
   if (tags.length && !users.length) return getLatestPhotosForTags(tags, { limit });
   if (users.length && !tags.length) return getLatestPhotosForUsers(users, { limit });
 
-  const [A, B] = await Promise.all([
-    getLatestPhotosForTags(tags, { limit: Math.ceil(limit*2) }),
-    getLatestPhotosForUsers(users, { limit: Math.ceil(limit*2) }),
-  ]);
-  const inter = intersectById(A, B);
-  inter.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
-  return inter.slice(0, limit);
+  // Safer AND semantics in a federated context:
+  // Fetch user posts and filter locally by tags to avoid relying on per-server tag timelines.
+  const userPosts = await getLatestPhotosForUsers(users, { limit: Math.ceil(limit * 3) });
+  const wanted = new Set(tags.map(t => String(t).toLowerCase()));
+  const filtered = userPosts.filter(p => (p.tags || []).some(tag => wanted.has(String(tag).toLowerCase())));
+
+  filtered.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+  return filtered.slice(0, limit);
 }
