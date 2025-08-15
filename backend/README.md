@@ -1,4 +1,4 @@
-![PixelFree Dark](public/PixelFreeDark.png)
+![PixelFree Dark](../doc/images/PixelFreeDark.png)
 
 # PixelFree Backend
 
@@ -22,7 +22,7 @@ In the future the backend will be enhanced to provide:
 ## Features
 - **Pixelfed OAuth 2.0 Authentication** — Securely authenticate and store access/refresh tokens for a Pixelfed account.
 - **Media Retrieval** — Fetches photos from Pixelfed based on user queries (hashtags, usernames).
-- **Query Flexibility** — Currently supports searching by tag or username; planned enhancements include multiple combined queries.
+- **Query Flexibility** — Currently supports searching by tags, usernames, or various combinations.
 - **Token Management** — Securely stores and refreshes access tokens.
 - **API Wrapper** — Encapsulates Pixelfed API calls for easy reuse in other modules.
 - **Static Frontend Support** — Serves a simple HTML/CSS/JS test frontend for development and testing.
@@ -92,23 +92,14 @@ In the future the backend will be enhanced to provide:
 
 ## Basic Tests of the Query API
 
-``` bash
-# Find posts from any specified user in the query [OR]
-curl -s http://localhost:3000/api/photos/query \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"tag","tags":["Italy","France"],"limit":20}' | jq .
+To test query functionality from the command line, use the file `scripts/api_query_tests.sh`. It contains a series of curl commands that exercise all the various aspects of the query API including a number of error cases. Before running these scripts, you must have already authenticated using OAuth:
 
-# Find posts with any of the listed hashtags [OR]
-curl -s http://localhost:3000/api/photos/query \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"user","accts":["rivercityrandom@bitbang.social","@icm@mastodon.sdf.org"],"limit":20}' | jq .
+   - In a browser, visit: http://localhost:3000/api/auth
+   - Log in to your Pixelfed account and authorize PixelFree.
+   - The backend will store the authentication token in `.token.json`.
+   - Once this is complete, you can run the script without errors.
 
-# Find posts with any of the specified tags from any of the specified users
-# [OR AND OR]
-curl -s http://localhost:3000/api/photos/query \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"compound","tags":["retrocomputing","retrocomputers"],"users":{"accts":["@rivercityrandom@bitbang.social","@icm@mastodon.sdf.org"]},"limit":20}' | jq .
-```
+This file is also provides good examples of what the API can do.
 
 ## License
 This backend is part of the PixelFree project, intended for educational and non-commercial use unless otherwise specified in the main project license.
