@@ -1,4 +1,4 @@
-![PixelFree Dark](backend/public/PixelFreeDark.png)
+![PixelFree Dark](doc/images/PixelFreeDark.png)
 
 # PixelFree
 
