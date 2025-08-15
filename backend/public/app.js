@@ -13,6 +13,7 @@ const tagsInput  = document.getElementById('tagsInput');
 const usersInput = document.getElementById('usersInput');
 const limitInput = document.getElementById('limitInput');
 const searchBtn  = document.getElementById('searchBtn');
+const tagModeSelect = document.getElementById('tagModeSelect');
 
 const grid    = document.getElementById('imageGrid');        // required
 const loading = document.getElementById('loadingIndicator'); // optional spinner
@@ -217,6 +218,7 @@ function buildQueryBody() {
   const tags  = normalizeTags(splitList(tagsInput?.value));
   const accts = normalizeAccts(splitList(usersInput?.value));
   const limit = getLimit();
+  const tagMode = (tags.length ? (tagModeSelect?.value || 'any') : 'any').toLowerCase(); // only matters if tags present
 
   if (!tags.length && !accts.length) {
     alert('Please enter at least one tag or one user.');
@@ -224,9 +226,9 @@ function buildQueryBody() {
   }
 
   if (tags.length && accts.length) {
-    return { type: 'compound', tags, users: { accts }, limit };
+    return { type: 'compound', tags, users: { accts }, limit, tagMode };
   } else if (tags.length) {
-    return { type: 'tag', tags, limit };
+    return { type: 'tag', tags, limit, tagMode };
   } else {
     return { type: 'user', accts, limit };
   }

@@ -29,7 +29,8 @@ app.use(express.json());
 // development proxy to the backend during local development. Keeping this here
 // too long can lead to confusion between the test UI and the production UI.
 //
-// TL;DR — Quick demo now, separate frontend later.
+// TL;DR — Small frontend to test the backend. Not for production!
+
 app.use(express.static('public'));
 
 // --- Import modules ---
@@ -134,29 +135,35 @@ app.get('/api/health', asyncHandler(async (_req, res) => {
   res.json(health);
 }));
 
-// Advanced multi-source query (tags/users with OR + AND) + partial success
+// Advanced multi-source query (tags/users with OR + AND + tagMode any|all)
 app.post('/api/photos/query', asyncHandler(async (req, res) => {
   const body = req.body || {};
-  const limit = Math.min(Math.max(Number(body.limit) || 20, 1), 40);
+  const limitRaw = Number(body.limit);
+  const limit = Math.max(1, Math.min(Number.isFinite(limitRaw) ? limitRaw : 20, 40));
 
+  // ---- TAGS ONLY ----
   if (body.type === 'tag') {
     const tags = Array.from(new Set((body.tags || [])
       .map(s => String(s).replace(/^#/, '').trim())
       .filter(Boolean)));
     if (!tags.length) throw new ValidationError('tags required');
-    const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit });
+
+    const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
+    const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit, tagMode });
     return res.json(photos);
   }
 
+  // ---- USERS ONLY ----
   if (body.type === 'user') {
     const providedIds = Array.isArray(body.accountIds) ? body.accountIds : [];
     const accts = Array.isArray(body.accts) ? body.accts : [];
-    const ids = [...providedIds];
     const errors = [];
+    const ids = providedIds.slice();
 
     for (const a of accts) {
       try {
-        ids.push(await resolveAccountId(a));
+        const id = await resolveAccountId(a);
+        if (id) ids.push(id);
       } catch (e) {
         errors.push({ target: a, code: e.code || 'error', message: e.message });
       }
@@ -169,34 +176,45 @@ app.post('/api/photos/query', asyncHandler(async (req, res) => {
     return errors.length ? res.json({ photos, errors }) : res.json(photos);
   }
 
+  // ---- COMPOUND (tags + users) ----
   if (body.type === 'compound') {
     const tags = Array.from(new Set((body.tags || [])
       .map(s => String(s).replace(/^#/, '').trim())
       .filter(Boolean)));
-    const userAccts = (body.users && Array.isArray(body.users.accts)) ? body.users.accts : [];
-    const userIdsIn = (body.users && Array.isArray(body.users.accountIds)) ? body.users.accountIds : [];
+
+    // Users can come as acct strings or as accountIds
+    const userAccts = Array.isArray(body.users?.accts) ? body.users.accts : [];
+    const userIdsIn = Array.isArray(body.users?.accountIds) ? body.users.accountIds : [];
 
     const errors = [];
-    const accountIds = [...userIdsIn];
+    const ids = userIdsIn.slice();
+
+    // Resolve accts → ids with partial error collection
     for (const a of userAccts) {
       try {
-        accountIds.push(await resolveAccountId(a));
+        const id = await resolveAccountId(a);
+        if (id) ids.push(id);
       } catch (e) {
         errors.push({ target: a, code: e.code || 'error', message: e.message });
       }
     }
 
-    const uniqueIds = Array.from(new Set(accountIds.filter(Boolean)));
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
     if (!tags.length && !uniqueIds.length) {
       throw new ValidationError('tags or users required');
     }
 
-    const photos = await photoFetcher.getLatestPhotosCompound({ tags, accountIds: uniqueIds }, { limit });
+    const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
+    const photos = await photoFetcher.getLatestPhotosCompound(
+      { tags, accountIds: uniqueIds },
+      { limit, tagMode }
+    );
     return errors.length ? res.json({ photos, errors }) : res.json(photos);
   }
 
   throw new ValidationError('unsupported query type', { type: body.type });
 }));
+
 
 // --- Start server ---
 app.listen(PORT, () => {
