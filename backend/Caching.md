@@ -22,6 +22,7 @@ Each saved “virtual album” (your query) maintains:
 
 - `type`: `tag` | `user` | `compound`
 - `tags[]` (normalized, no `#`)
+- `tagMode`: `all` | `any` (controls whether all tags must match or any may match; applies to `type: tag` and the tag portion of `type: compound`)
 - `user_ids[]` or `accts[]` (resolved to IDs)
 - **Refresh policy**: `intervalMs` (user-set), `last_checked_at`, `backoff_until` (when rate-limited)
 - **Pagination watermarks**:
@@ -29,12 +30,21 @@ Each saved “virtual album” (your query) maintains:
   - `max_id` (older-than for backfill)
 - **Local result set**: list of `status_id` sorted by `created_at` (bounded to album limit * some headroom)
 
-UI can expose: **Refresh every**: _5 min / 15 min / hourly_, plus **Manual refresh**.
+UI can expose: **Refresh every**: _5 min / 15 min / hourly_, plus **Manual refresh**.  
+Also expose **Match mode**: _All tags must match_ / _Any tag may match_.
 
 ## Fetch strategies by album type
-- **Tag OR**: poll `/timelines/tag/:tag` with `since_id` for new posts. Use `max_id` for backfill if the album is thin.
+- **Tag (`tagMode = any`)**: poll `/timelines/tag/:tag` separately for each tag, then union the results.
+- **Tag (`tagMode = all`)**:  
+  - Preferred: fetch each tag timeline, intersect results locally (more reliable across federation).  
+  - Alternate: use server-side multiple-tag queries if supported by the instance (less common).
 - **User OR**: poll `/accounts/:id/statuses` with `since_id`.
-- **Tags+Users AND**: **fetch user posts** then **filter locally** by tags (avoid server tag timeline, which can be incomplete across federation). Keep a larger headroom (e.g., request 3× the album limit) so filtering has enough candidates.
+- **Tags+Users AND**:
+  - Fetch user posts (`/accounts/:id/statuses`).
+  - Filter locally by tags.
+  - If `tagMode = all`, require all specified tags to be present; if `any`, require at least one.
+
+Keep a larger headroom (e.g., request 3× the album limit) so filtering has enough candidates, especially for `tagMode = all`.
 
 ## Polling & backoff
 - **Scheduler** runs every minute, but **only touches albums whose `intervalMs` has elapsed**.
@@ -47,17 +57,21 @@ UI can expose: **Refresh every**: _5 min / 15 min / hourly_, plus **Manual refre
 async function refreshAlbum(album) {
   if (Date.now() < album.backoff_until) return;
 
-  const headroom = Math.min(album.limit * 3, 120); // AND-case needs more
+  const headroom = Math.min(album.limit * 3, 120);
   const params = { since_id: album.since_id, limit: headroom };
-
   let posts = [];
+
   if (album.type === 'tag') {
-    posts = await fetchTagTimeline(album.tags, params); // union OR across tags
+    if (album.tagMode === 'any') {
+      posts = await unionTagTimelines(album.tags, params);
+    } else { // tagMode === 'all'
+      posts = await intersectTagTimelines(album.tags, params);
+    }
   } else if (album.type === 'user') {
-    posts = await fetchUsersStatuses(album.user_ids, params); // union OR across users
-  } else { // compound
+    posts = await fetchUsersStatuses(album.user_ids, params);
+  } else { // compound: users + tags
     const candidates = await fetchUsersStatuses(album.user_ids, params);
-    posts = filterByTags(candidates, album.tags); // local AND
+    posts = filterByTags(candidates, album.tags, album.tagMode);
   }
 
   const newIds = upsertPosts(posts);
@@ -97,7 +111,8 @@ async function refreshAlbum(album) {
   - `POST /api/albums/:id/refresh` → manual refresh endpoint.
   - `GET /api/photos/query` → add `X-Cache: HIT|MISS` header (optional).
 - Frontend:
-  - Settings screen: slider/select for **Refresh interval**; a **Refresh now** action.
+  - Settings screen: slider/select for **Refresh interval**.
+  - Toggle or dropdown for **Tag matching mode** (All / Any).
   - Notices for **rate limited** and **upstream down**.
 
 ## Security & privacy

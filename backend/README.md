@@ -5,9 +5,9 @@
 ## Overview
 The PixelFree backend is a Node.js application that acts as the controller for the PixelFree digital photo frame project. It handles authentication with the Pixelfed API, retrieves images, and serves them to a frontend display application. Images can be queried based on hashtags, users, or both. The interface can:
 
-1. Retrieve images with the specified hashtags regardless of which users posted them.
-2. Retrieve images from the spefied users regardless of how or if they are tagged.
-3. Retrieve images with the specified hashtags, but only from the spefied users.
+1. Retrieve images from any of the specified users regardless of how or if they are tagged.
+2. Retrieve images with any|all of the specified hashtags, regardless of which users posted them.
+3. Retrieve images with any|all of the specified hashtags, but only from the specified users.
 
 A Pixelfed client ID (public) and corresponding client secret have already been obtained for the project.
 
