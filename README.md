@@ -9,12 +9,14 @@ An open-source, privacy-focused digital photo frame that displays photos from Pi
 2. Features
 3. Project Structure
 4. Major Components
-   - Frontend (Settings UI)
-   - Frontend (Display UI)
-   - Backend (Controller)
-   - Backend (Image Cache)
-   - Backend (Pixelfed API)
-   - Backend (Config & Prefs)
+   - Frontend
+   		- Settings UI
+   		- Display UI
+   - Backend [(detailed document)](backend/README.md)
+   		- Controller
+   		- Image Cache
+   		- Pixelfed API
+   		- Config & Prefs
    - Deployment Target
 5. Installation
 6. Usage
