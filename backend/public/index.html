@@ -24,61 +24,53 @@
     </div>
   </header>
 
-  <section class="controls" id="controls">
-    <table class="controls-table" role="presentation">
-      <colgroup>
-        <col class="col1" />
-        <col class="col2" />
-        <col class="col3" />
-        <col class="col4" />
-      </colgroup>
-      <tbody>
-        <!-- Row 1: headings line -->
-        <tr class="controls-row-head">
-          <td class="mode-cell">
-            <label class="sr-only" for="tagModeSelect">Tag matching mode</label>
-            <select id="tagModeSelect" title="Choose whether tags must all match or any may match">
-              <option value="all">All</option>
-              <option value="any" selected>Any</option>
+  
+  <section id="controls">
+    <div class="grid-container">
+        <!-- Row 1, Column 1: E1 + E2 -->
+        <div class="grid-item">
+            <select id="tagModeSelect">
+                <option value="Any">Any</option>
+                <option value="All">All</option>
             </select>
-            <span class="head-label" aria-hidden="true">of these Tags</span>
-          </td>
-          <td class="head-label" aria-hidden="true">from any of these Users</td>
-          <td class="head-label" aria-hidden="true">Limit</td>
-          <td></td> <!-- aligns over Search -->
-        </tr>
+            <label for="tagModeSelect">of these <strong>Tags</strong></label>
+        </div>
 
-        <!-- Row 2: inputs line -->
-        <tr class="controls-row-body">
-          <td>
-            <label for="tagsInput" class="sr-only">Tags</label>
-            <input
-              id="tagsInput"
-              type="text"
-              placeholder="#travel, #italy"
-              title="Enter one or more tags, separated by commas or spaces."
-            />
-          </td>
-          <td>
-            <label for="usersInput" class="sr-only">Users</label>
-            <input
-              id="usersInput"
-              type="text"
-              placeholder="@joe@blow.com, @mary@lamb.org"
-              title="Enter one or more Fediverse usernames (acct format)"
-            />
-          </td>
-          <td class="limit-cell">
-            <label for="limitInput" class="sr-only">Limit</label>
-            <input id="limitInput" type="number" min="1" max="40" value="20" />
-          </td>
-          <td class="search-cell">
-            <button id="searchBtn" title="Runs the query using the selected tag mode.">Search</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+        <!-- Row 1, Column 2: E3 -->
+        <div class="grid-item">
+            <label>from any of these <strong>Users</strong></label>
+        </div>
+
+        <!-- Row 1, Column 3: E4 -->
+        <div class="grid-item">
+            <label>Limit</label>
+        </div>
+
+        <!-- Row 1, Column 4: Empty -->
+        <div class="grid-item empty"></div>
+
+        <!-- Row 2, Column 1: E5 -->
+        <div class="grid-item">
+            <input id="tagsInput" type="text" placeholder="(e.g. #italy #india)">
+        </div>
+
+        <!-- Row 2, Column 2: E6 -->
+        <div class="grid-item">
+            <input id="usersInput" type="text" placeholder="(e.g. joe@blow.org)">
+        </div>
+
+        <!-- Row 2, Column 3: E7 -->
+        <div class="grid-item">
+            <input id="limitInput" type="number" min="1" max="40" value="8">
+        </div>
+
+        <!-- Row 2, Column 4: E8 -->
+        <div class="grid-item">
+            <button id="searchBtn" type="button">Search</button>
+        </div>
+    </div>
   </section>
+
 
   <!-- Message area lives right below the controls -->
   <div id="notices" aria-live="polite"></div>
@@ -93,10 +85,6 @@
 
     <div id="empty" class="empty" hidden>No photos yet. Try a tag above.</div>
   </main>
-
-  <footer class="footer">
-    <small>Demo UI for login + fetch. Data from your Pixelfed instance.</small>
-  </footer>
 
   <!-- Info Modal -->
   <div id="infoModal" class="modal" hidden>
