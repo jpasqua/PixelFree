@@ -57,22 +57,28 @@ In the future the backend will be enhanced to provide:
 
 ## Setup Instructions
 1. **Clone the repository**
+
    ```bash
-   git clone <repo-url>
-   cd <repo-folder>
+   # Navigate to a directory where you'd like the code to live (e.g. ~/Projects)
+   # The git clone command will create a new subdirectory named PixelFree and
+   # populate it with the project code
+   git clone https://github.com/<your-org>/PixelFree.git
+   cd PixelFree
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Create environment configuration**
    - Copy `env.example.txt` to `.env`:
+
      ```bash
      cp env.example.txt .env
      ```
-   - Fill in the required fields in `.env` (see comments in file).
+   - Edit the `.env` file to supply your Pixelfed secret. Contact your project adminsitrator to get this.
 
 4. Run the backend
 
