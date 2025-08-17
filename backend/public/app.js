@@ -92,21 +92,30 @@ function showNotice(message, kind = 'info') {
 }
 
 // ===== Auth =====
+let isAuthenticated = false;
+
 async function checkAuth() {
   try {
     statusEl && (statusEl.textContent = 'Checking auth...');
     const s = await getJSON('/api/auth/status');
     if (s.authenticated) {
+      isAuthenticated = true;
       statusEl && (statusEl.textContent = 'Authenticated');
       loginBtn && (loginBtn.hidden = true);
       logoutBtn && (logoutBtn.hidden = false);
+      searchBtn && (searchBtn.disabled = false);
+      searchBtn.title = "Run search";
     } else {
+      isAuthenticated = false;
       statusEl && (statusEl.textContent = 'Not authenticated');
       loginBtn && (loginBtn.hidden = false);
       logoutBtn && (logoutBtn.hidden = true);
+      searchBtn && (searchBtn.disabled = true);
+      searchBtn.title = "Please log in first";
     }
   } catch (e) {
     console.error(e);
+    isAuthenticated = false;
     statusEl && (statusEl.textContent = 'Error checking auth');
   }
 }
@@ -291,6 +300,11 @@ function formatLocation(loc) {
 
 // ===== Advanced query against /api/photos/query =====
 async function runSearch() {
+  if (!isAuthenticated) {
+    alert('Please log in before searching.');
+    return;
+  }
+
   const body = buildQueryBody();
   if (!body) return;
 

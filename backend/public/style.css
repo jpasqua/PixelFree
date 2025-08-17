@@ -67,6 +67,14 @@ button.primary {
   color: #04121f; border-color: transparent; font-weight: 600;
 }
 
+/* Disabled state for Search button */
+#searchBtn:disabled {
+  background-color: #aaa;        /* greyed out */
+  color: #666;                   /* dimmed text */
+  cursor: not-allowed;           /* show "not allowed" cursor */
+  opacity: 0.7;                  /* slightly faded */
+}
+
 /* Content */
 .container { padding: 10px 18px 28px; }
 .grid {
