@@ -154,40 +154,38 @@ function renderPhotos(photos) {
     const card = document.createElement('div');
     card.className = 'card';
 
-    // 1) Clickable image → open full-size (media URL)
-    const link = document.createElement('a');
-    link.href = p.url || '#';
-    link.target = '_blank';
-    link.rel = 'noopener';
+    // Create clickable wrapper (image + caption)
+    const clickable = document.createElement('div');
+    clickable.className = 'clickable-card';
 
+    // Image
     const img = document.createElement('img');
     img.src = p.preview_url || p.url;
     img.loading = 'lazy';
     img.alt = (Array.isArray(p.tags) && p.tags.length) ? p.tags.join(', ') : 'photo';
+    clickable.appendChild(img);
 
-    link.appendChild(img);
-    card.appendChild(link);
-
-    // 2) Caption (clickable for details)
+    // Caption
     const captionText = truncateText(htmlToText(p.caption || p.content || 'View details'), CAPTION_MAX_LENGTH);
     const caption = document.createElement('div');
     caption.className = 'caption';
     caption.textContent = captionText;
+    clickable.appendChild(caption);
 
-    // 3) Click caption → popup with details
-    caption.addEventListener('click', () => {
+    // Unified click → popup with details
+    clickable.addEventListener('click', () => {
       openInfoModal({
         captionHtml: p.caption || p.content || '',
         author: p.author || {},
         author_display_name: p.author_display_name || (p.author?.username),
         created_at: p.created_at,
-        location: p.location,                  // may be undefined
-        post_url: p.post_url || p.status_url,  // may be undefined
+        location: p.location,
+        post_url: p.post_url || p.status_url,
         media_url: p.url
       });
     });
 
-    card.appendChild(caption);
+    card.appendChild(clickable);
     frag.appendChild(card);
   }
 
@@ -247,6 +245,13 @@ function openInfoModal(info) {
   const loc = info.location ? formatLocation(info.location) : '—';
 
   modalContent.innerHTML = `
+    ${info.media_url ? `
+      <div class="row" style="text-align:center; margin-bottom:10px;">
+        <a href="${info.media_url}" target="_blank" rel="noopener">
+          <img src="${info.media_url}" alt="media" style="max-width:100%; max-height:300px; border-radius:4px;" />
+        </a>
+      </div>
+    ` : ''}
     <div class="row"><strong>By:</strong> <span>${escapeHtml(byline)}</span></div>
     <div class="row"><strong>When:</strong> <span>${escapeHtml(dateStr)}</span></div>
     <div class="row"><strong>Location:</strong> <span>${escapeHtml(loc)}</span></div>

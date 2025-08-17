@@ -170,6 +170,15 @@ body.is-loading .grid {
 .modal-content a { color: var(--brand-2); text-decoration: none; }
 .modal-content a:hover { text-decoration: underline; }
 
+.clickable-card {
+  cursor: pointer;
+}
+
+.clickable-card:hover {
+  opacity: 0.95;
+  transition: opacity 0.2s ease-in-out;
+}
+
 /* Optional error text style used by JS on failures */
 .error {
   color: #ffb4b4;
