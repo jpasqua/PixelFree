@@ -1,3 +1,11 @@
+/**
+ * errors.js
+ *
+ * Centralized error definitions and handling utilities for the backend.
+ * Provides a consistent way to create, format, and propagate errors
+ * across services, including standard error types with HTTP status codes.
+ */
+
 export class AppError extends Error {
   /** @param {string} message @param {string} code @param {number} status @param {object} [meta] */
   constructor(message, code = 'internal_error', status = 500, meta = undefined) {

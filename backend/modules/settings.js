@@ -1,5 +1,10 @@
-// PixelFree/backend/modules/settings.js
-// Loads basic settings and allows minimal updates (in-memory for now).
+/**
+ * settings.js
+ *
+ * Express route handlers for user account settings.
+ * Supports fetching and updating user preferences, profile data,
+ * and other configurable options tied to an authenticated user.
+ */
 
 let settings = {
   instanceUrl: process.env.PIXELFED_INSTANCE || 'https://pixelfed.social',

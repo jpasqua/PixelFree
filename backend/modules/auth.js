@@ -1,4 +1,26 @@
-// PixelFree/backend/modules/auth.js
+/**
+ * Authentication module for interacting with a Pixelfed instance.
+ *
+ * This module provides functionality for:
+ * - Registering new accounts with the Pixelfed API
+ * - Logging in users and retrieving access tokens
+ * - Persisting and restoring authentication sessions to disk
+ * - Managing session state across application runs
+ *
+ * Typical usage:
+ *   const auth = require('./modules/auth');
+ *   await auth.login(username, password);
+ *   const client = auth.getClient();
+ *
+ * Dependencies:
+ * - Relies on the Pixelfed API for authentication
+ * - Integrates with filesystem storage to cache session information
+ *
+ * Exports:
+ * - Functions for user registration and login
+ * - Utilities for session persistence and restoration
+ */
+
 import fs from 'fs';
 import path from 'path';
 

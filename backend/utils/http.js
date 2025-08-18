@@ -1,4 +1,12 @@
-// HTTP utility helpers
+/**
+ * HTTP utilities for the backend.
+ *
+ * Provides helper functions to standardize and simplify HTTP-related logic,
+ * including consistent JSON response formatting, error handling, and status
+ * code usage across Express route handlers. These utilities ensure that API
+ * responses follow a predictable structure, reducing duplication and improving
+ * maintainability throughout the application.
+ */
 
 /**
  * @template T

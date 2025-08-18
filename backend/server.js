@@ -1,4 +1,31 @@
-// PixelFree/backend/server.js
+/**
+ * server.js
+ *
+ * Main entry point for the OtterConnect backend server.
+ *
+ * This module is responsible for initializing and starting the Express.js
+ * application, configuring global middleware, routing, and error handling.
+ * It also establishes the connection to the underlying MySQL database and
+ * ensures that application-wide configuration values are applied at startup.
+ *
+ * Key responsibilities:
+ * - Load and configure environment variables to manage deployment settings
+ *   (e.g., database credentials, ports, API keys).
+ * - Initialize the Express app, apply JSON/body parsers, CORS settings, and
+ *   any other middleware required globally across routes.
+ * - Import and mount API route modules, providing a clean separation of
+ *   functionality (e.g., authentication, user management, or application-specific
+ *   features).
+ * - Centralize error handling by using the error mapper utility to translate
+ *   low-level errors (database, validation, etc.) into consistent HTTP responses.
+ * - Start the HTTP server on the designated port and log a startup message to
+ *   confirm the backend is online.
+ *
+ * In short, this file wires together the components defined in the rest of
+ * the backend codebase and is the process entry point when launching the
+ * application with Node.js.
+ */
+
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';

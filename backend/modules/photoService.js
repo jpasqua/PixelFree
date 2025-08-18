@@ -1,4 +1,11 @@
-// modules/photoService.js
+/**
+ * photoService.js
+ *
+ * Service layer for handling user profile photos.
+ * Provides functions for uploading, retrieving, and deleting images,
+ * abstracting away storage details (e.g., file system, cloud storage).
+ */
+
 import { getAccessToken } from './auth.js';
 
 /**

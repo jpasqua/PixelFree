@@ -1,4 +1,26 @@
-// modules/accounts.js
+/**
+ * @module accounts
+ * 
+ * Provides account management functionality for the application, including
+ * user authentication, session handling, and interaction with persistent
+ * account data storage.
+ * 
+ * ## Responsibilities
+ * - Create, retrieve, and manage user accounts
+ * - Handle authentication (login, logout)
+ * - Manage session tokens and related validation
+ * - Interface with backend services or the database layer for account data
+ * 
+ * ## Exports
+ * - Functions to manage user login and logout
+ * - Functions to fetch and update account details
+ * - Utility methods for session verification
+ * 
+ * ## Notes
+ * - Works in conjunction with `pixelfedApi` for API calls when needed
+ * - Central point for logic related to accounts and user identity
+ */
+
 import { getAccessToken } from './auth.js';
 import {
   ValidationError,

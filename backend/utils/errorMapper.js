@@ -1,3 +1,13 @@
+/**
+ * Utility module for mapping internal error objects to user-friendly responses.
+ *
+ * This module provides a centralized way to translate application-level
+ * or system-level errors into standardized messages that can be returned
+ * to the client or logged consistently. By decoupling error mapping logic
+ * from route handlers and services, it ensures consistency, maintainability,
+ * and easier debugging.
+ */
+
 import {
   AppError,
   ValidationError,
