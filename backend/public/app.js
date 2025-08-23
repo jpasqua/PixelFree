@@ -390,11 +390,16 @@ searchBtn?.addEventListener('click', (e) => {
   runSearch().catch(console.error);
 });
 
-// Submit on Enter in any field
+// Submit on Enter in any field (only if authenticated)
 [tagsInput, usersInput, limitInput].forEach(el => {
   el?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (!isAuthenticated) {
+        alert('Please log in before running a search.');
+        loginBtn?.focus();
+        return;
+      }
       runSearch().catch(console.error);
     }
   });
