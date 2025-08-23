@@ -62,7 +62,7 @@ In the future the backend will be enhanced to provide:
    # Navigate to a directory where you'd like the code to live (e.g. ~/Projects)
    # The git clone command will create a new subdirectory named PixelFree and
    # populate it with the project code
-   git clone https://github.com/<your-org>/PixelFree.git
+   git clone https://github.com/jpasqua/PixelFree.git
    cd PixelFree
    ```
 
