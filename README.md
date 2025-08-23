@@ -1,100 +1,63 @@
 ![PixelFree Dark](doc/images/PixelFreeDark.png)
 
-# PixelFree
 
-An open-source, privacy-focused digital photo frame that displays photos from Pixelfed — a decentralized photo-sharing platform in the Fediverse.
+PixelFree is a free and open digital photo frame that connects to the
+**Pixelfed** decentralized photo-sharing platform in the Fediverse.  
+Unlike commercial photo frames that lock users into proprietary ecosystems,
+PixelFree emphasizes **freedom, privacy, and interoperability**.
 
-## Table of Contents
-1. Introduction
-2. Features
-3. Project Structure
-4. Major Components
-   - Frontend
-   		- Settings UI
-   		- Display UI
-   - Backend [(detailed document)](backend/README.md)
-   		- Controller
-   		- Image Cache
-   		- Pixelfed API
-   		- Config & Prefs
-   - Deployment Target
-5. Installation
-6. Usage
-7. Development
-   - Prerequisites
-   - Setting up the backend
-   - Setting up the frontend
-8. Contributing
-9. License
+With PixelFree, users can display photos from their own Pixelfed accounts or
+from public feeds they admire—without subscriptions, hidden costs, or
+surrendering data to Big Tech platforms.
 
-## 1. Introduction
-- High-level purpose and goals of PixelFree
-- Why it exists and what problems it solves
 
-## 2. Features
-- Display photos from your own Pixelfed account or public feeds
-- Multiple viewing modes (single photo, tiled layout, slideshow)
-- Offline caching of images
-- Secure OAuth2 authentication
-- Open source and privacy-focused
+## Key Features
 
-## 3. Project Structure
-- `/backend` — Node.js/Express API server
-- `/frontend` — Web-based display and settings UI
-- `/docs` — Documentation and resources
+- **Pixelfed Integration** – Connects directly to a Fediverse photo-sharing
+  instance using secure OAuth2 authentication.
+- **Virtual Albums** – Define albums based on hashtags, users, or compound queries
+  (e.g., “all posts tagged #Italy by @user@instance”).
+- **Flexible Display** – Fullscreen carousel or tiled layouts with configurable
+  transitions and display intervals.
+- **Offline Support** – Caches images locally to keep albums available even when
+  the network is down.
+- **Open & Extensible** – Modular backend, frontend testbed, and kiosk-mode
+  deployment target (e.g., Raspberry Pi).
 
-## 4. Major Components
-### Frontend (Settings UI)
-- Manages account connections and settings
-- Built with HTML/CSS/JS (or React)
 
-### Frontend (Display UI)
-- Full-screen photo display
-- Supports themes and transitions
+## Major Components
 
-### Backend (Controller)
-- Handles authentication, photo retrieval, and caching
+| Component                | Description                                                                 | Language / Tech         |
+|--------------------------|-----------------------------------------------------------------------------|-------------------------|
+| **Frontend (Settings UI)** | Setup, styling, and operational settings (e.g., hours of operation). On par with existing commercial offerings. | HTML/CSS/JS (or React) |
+| **Frontend (Display UI)**  | Photo carousel interface. Runs full screen. Comparable to commercial frames (e.g., tiled photo views). | HTML/CSS/JS (or React) |
+| **Backend (Controller)**   | Handles OAuth authentication, token management, photo retrieval, caching, and scheduling updates. | Node.js |
+| **Backend (Image Cache)**  | Stores image metadata and files locally, maintains freshness of cache. | Node.js / File system |
+| **Backend (Pixelfed API)** | Wraps API calls (OAuth token exchange, photo queries, refreshes). | Node.js module |
+| **Backend (Config & Prefs)** | User-specific config (e.g., accounts, tags to follow, refresh interval). | JSON / dotenv |
+| **Deployment Target**      | Kiosk-mode Raspberry Pi or similar device, auto-starting app at boot. | Raspberry Pi OS |
+For **setup instructions, architecture details, and developer workflow**, see: [Backend README](backend/README.md)
 
-### Backend (Image Cache)
-- Stores images and metadata locally
+## Getting Started
 
-### Backend (Pixelfed API)
-- Manages API requests to Pixelfed
+### Quick Start (Non-Developers)
+PixelFree is still under development as part of a university capstone project.  
+For now, the system is intended for demonstration and evaluation.
 
-### Backend (Config & Prefs)
-- Manages user preferences and credentials
+A packaged release for non-technical users may be provided in the future.
 
-### Deployment Target
-- Raspberry Pi in kiosk mode (stretch goal)
+### Developers
+If you want to run or contribute to PixelFree:  
+- Clone the repository  
+- Follow the [backend README](backend/README.md) for setup and usage details  
 
-## 5. Installation
-- Clone repository
-- Install dependencies
-- Create `.env` file from `example.env`
-- Start backend and frontend
 
-## 6. Usage
-- Access settings UI to log in and configure feeds
-- Run in display mode for photo frame operation
+## About the Project
 
-## 7. Development
-### Prerequisites
-- Node.js
-- npm
-- Git
+PixelFree is being developed as a Capstone project at [Cal State Monterey Bay](https://csumb.edu). The project will deliver a functional digital photo frame, and also serves as a case study in building **open, decentralized alternatives** to consumer tech products.
 
-### Setting up the backend
-- See `/backend/README.md`
 
-### Setting up the frontend
-- TBD
-
-## 8. Contributing
-- Fork the repo
-- Create a feature branch
-- Submit pull requests
-
-## 9. License: [![CC BY-NC 4.0][cc-by-nc-shield]][cc-by-nc]
+## License: [![CC BY-NC 4.0][cc-by-nc-shield]][cc-by-nc]
 This work is licensed under a
 [Creative Commons Attribution-NonCommercial 4.0 International License][cc-by-nc].
 
