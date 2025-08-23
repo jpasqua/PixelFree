@@ -13,10 +13,10 @@ A Pixelfed client ID (public) and corresponding client secret have already been 
 
 In the future the backend will be enhanced to provide:
 
-* Virtual albums
+* "Favorites" albums
 * Image caching (see [separate caching strategy document](Caching.md))
 * Time-based queries (e.g. new photos since)
-* Unit tests
+* Full-coverage unit tests
 
 
 ## Features
@@ -57,26 +57,40 @@ In the future the backend will be enhanced to provide:
 
 ## Setup Instructions
 
-The instructions below are to be run in Windows `Terminal`. Note that after installing `git` you may use `bash` instead of `Terminal`. Of course you may also do all of this in an IDE.
+Notes:
 
-1. **Clone the repository**
+* You will need a Pixelfed account for this project. Please create one on the `pixelfed.social` instance as described here: [Getting Started](https://pixelfed.social/site/kb/getting-started)
+* The instructions below are to be run in Windows `Terminal`. Note that after installing `git` you may use `bash` instead of `Terminal`. Of course you may also do all of this in an IDE.
+* If running on a Mac or Linux, you can skip the Windows-specific steps.
+
+0. **Install tools**
 
    ```bash
-   # If git is not already installed, install it using the command below:
+   # Install git using the command below. You will be prompted for input along the way.
    winget install --id Git.Git -e --source winget
+   # Now install Node. You will be propted for input along the way.
+   winget install --id OpenJS.NodeJS.LTS -e
+   # The next command is critical in order for `npm` to work:
+   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+   #
+   # Important: Close and re-open your Terminal or the commands won't be found!
+   #
+   ```
+ 
+1. **Clone the repository**
+   
+   ```bash
    # Navigate to a directory where you'd like the code to live (e.g. ~/Projects)
    # The git clone command will create a new subdirectory named PixelFree and
    # populate it with the project code
    git clone https://github.com/jpasqua/PixelFree.git
-   cd PixelFree
+   cd PixelFree/backend
    ```
 
 2. **Install dependencies**
 
    ```bash
-   # First install Node
-   winget install --id OpenJS.NodeJS.LTS -e
-   # Now the project dependencies
+   # Now return to the project directory and install the project dependencies
    npm install
    ```
 
