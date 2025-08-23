@@ -56,9 +56,14 @@ In the future the backend will be enhanced to provide:
 - A `.gitignore` is provided to ensure sensitive files are not pushed to the repository.
 
 ## Setup Instructions
+
+The instructions below are to be run in Windows `Terminal`. Note that after installing `git` you may use `bash` instead of `Terminal`. Of course you may also do all of this in an IDE.
+
 1. **Clone the repository**
 
    ```bash
+   # If git is not already installed, install it using the command below:
+   winget install --id Git.Git -e --source winget
    # Navigate to a directory where you'd like the code to live (e.g. ~/Projects)
    # The git clone command will create a new subdirectory named PixelFree and
    # populate it with the project code
@@ -69,6 +74,9 @@ In the future the backend will be enhanced to provide:
 2. **Install dependencies**
 
    ```bash
+   # First install Node
+   winget install --id OpenJS.NodeJS.LTS -e
+   # Now the project dependencies
    npm install
    ```
 
