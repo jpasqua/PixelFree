@@ -55,10 +55,11 @@ curl -s "$BASE/api/photos/query" \
   -d '{"type":"user","accts":["rivercityrandom@bitbang.social","@icm@mastodon.sdf.org"],"limit":20}' | $JQ
 
 # 5) Users (mix accountIds + accts): server should resolve accts and de-dupe
-# Replace 1234567890 with a real account id if you have one
+# The account id  below (492024277268145458) was a valid account when these tests
+# were written. Replace it with a valid ID should this account become inactive.
 curl -s "$BASE/api/photos/query" \
   -H 'Content-Type: application/json' \
-  -d '{"type":"user","accountIds":["1234567890"],"accts":["@icm@mastodon.sdf.org"],"limit":20}' | $JQ
+  -d '{"type":"user","accountIds":["492024277268145458"],"accts":["@icm@mastodon.sdf.org"],"limit":20}' | $JQ
 
 ########################################################
 # COMPOUND (USERS + TAGS)
