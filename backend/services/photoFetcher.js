@@ -1,25 +1,39 @@
 /**
- * Photo Fetcher Service
+ * modules/photoFetcher.js
+ * -----------------------
+ * High-level backend service for retrieving photo posts from a Pixelfed instance.
  *
- * This module provides helper functions to fetch recent photo posts from a Pixelfed/Mastodon-compatible API.
- * It supports queries by:
- *   - One or more hashtags (OR logic between tags)
- *   - One or more user accounts (OR logic between users)
- *   - Both hashtags AND user accounts (AND logic between groups)
+ * This module implements the main query logic for PixelFree’s virtual albums.
+ * It supports fetching photos by:
+ *   - One or more hashtags (tag timelines, with “any” or “all” tag match modes)
+ *   - One or more user accounts (statuses from specific accounts)
+ *   - Combined tags + users (AND semantics: fetch user posts, then filter locally by tags)
  *
- * Key points about the AND case (tags + users):
- *   - Many federated servers (including Pixelfed and Mastodon) cannot natively filter a user's posts by tag
- *     when the posts originate on a remote instance. Their "tag timeline" feature is incomplete across
- *     federation boundaries, so you can miss results if you rely on it.
- *   - To avoid this limitation, the AND case is implemented as:
- *       1. Fetch recent posts from the given users (pulling more than the requested `limit` to allow filtering).
- *       2. Filter locally by the given tags.
- *       3. Sort results by creation date and return the requested number of posts.
- *   - This ensures correctness at the cost of some extra network requests and local filtering work,
- *     but avoids silently missing posts that match the tags.
+ * Key responsibilities:
+ * - Wrap Pixelfed/Mastodon API calls for tag timelines and user statuses.
+ * - Apply local filtering for tag requirements, since federated servers cannot
+ *   reliably filter remote posts by tag.
+ * - Normalize raw statuses into a consistent `Photo` object shape:
+ *     `{ id, created_at, author, author_display_name, caption, post_url,
+ *        tags[], url, preview_url }`
+ * - Support OR vs ALL tag logic (`tagMode` option).
+ * - Deduplicate posts and enforce configurable limits (1–40).
+ * - Handle transient errors and rate limits with meaningful error types.
  *
- * All fetch functions respect a configurable `limit` and attempt to normalize returned posts so the
- * front end receives a consistent shape regardless of query type.
+ * Exports:
+ * - `getLatestPhotosForTags(tags: string[], opts)`  
+ *     Fetch recent posts for given tags, with “any” or “all” tag logic.
+ * - `getLatestPhotosForUsers(accountIds: string[], opts)`  
+ *     Fetch recent posts from one or more accounts.
+ * - `getLatestPhotosCompound(input: { tags, accountIds }, opts)`  
+ *     Fetch posts matching both tags and users (AND semantics, local filtering).
+ *
+ * Notes:
+ * - Uses `auth.getAccessToken()` for OAuth2 bearer tokens.
+ * - Base Pixelfed instance URL comes from `PIXELFED_INSTANCE` env var
+ *   (defaults to https://pixelfed.social).
+ * - Returns only image attachments; other media types are skipped.
+ * - Sorting is newest-first by `created_at`.
  */
 
 import { get as apiGet } from '../api/pixelfedApi.js';

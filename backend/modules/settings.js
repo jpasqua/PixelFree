@@ -1,10 +1,32 @@
 /**
- * settings.js
+ * modules/settings.js
+ * -------------------
+ * Centralized configuration state for the PixelFree backend.
  *
- * Express route handlers for user account settings.
- * Supports fetching and updating user preferences, profile data,
- * and other configurable options tied to an authenticated user.
+ * This module holds runtime settings (instance credentials, display options,
+ * data source, sync/cache parameters) in a single object. It exposes helpers
+ * to read or update these values across the application.
+ *
+ * Responsibilities
+ * - Provide default values for:
+ *   - Pixelfed instance connection (instance URL, client ID/secret, redirect URI)
+ *   - Display behavior (e.g., transition timing, captions on/off)
+ *   - Content source defaults (e.g., type 'tag', default tag)
+ *   - Sync/caching settings (fetch interval, fetch limit, cache budget in bytes)
+ * - Expose a getter for other modules to read current settings
+ * - Allow controlled updates of settings at runtime via shallow merge
+ *
+ * Exports
+ * - `getSettings()` → return the current settings object
+ * - `updateSettings(partial: object)` → merge updates into the settings object and return the new state
+ *
+ * Notes
+ * - Settings are initialized from environment variables (`PIXELFED_INSTANCE`,
+ *   `PIXELFED_CLIENT_ID`, etc.) with sensible defaults if not provided.
+ * - In-memory only: updates are not persisted to disk or database between runs.
+ * - Intended as a lightweight runtime config store for development/testbed use.
  */
+
 
 let settings = {
   instanceUrl: process.env.PIXELFED_INSTANCE || 'https://pixelfed.social',

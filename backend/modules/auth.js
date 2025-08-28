@@ -1,24 +1,35 @@
 /**
- * Authentication module for interacting with a Pixelfed instance.
+ * modules/auth.js
+ * ----------------
+ * Backend authentication helper for Pixelfed OAuth2.
  *
- * This module provides functionality for:
- * - Registering new accounts with the Pixelfed API
- * - Logging in users and retrieving access tokens
- * - Persisting and restoring authentication sessions to disk
- * - Managing session state across application runs
+ * This module manages the entire OAuth2 login lifecycle with a Pixelfed instance:
+ *   - Generating the authorization URL for the user to log in
+ *   - Handling the callback and exchanging an authorization code for access/refresh tokens
+ *   - Persisting tokens securely to disk (`.token.json`)
+ *   - Reporting authentication status and token expiry
+ *   - Refreshing tokens when near or past expiration
+ *   - Logging out (removing stored tokens)
  *
- * Typical usage:
- *   const auth = require('./modules/auth');
- *   await auth.login(username, password);
- *   const client = auth.getClient();
+ * Responsibilities
+ * - Encapsulate all OAuth2 protocol details so that other backend services can
+ *   simply call `getAccessToken()` when they need a valid token.
+ * - Ensure tokens are refreshed automatically when expired or nearly expired.
+ * - Maintain minimal, file-based session state between application runs.
  *
- * Dependencies:
- * - Relies on the Pixelfed API for authentication
- * - Integrates with filesystem storage to cache session information
+ * Exports
+ * - `getLoginUrl()`        → Return the Pixelfed OAuth2 authorization URL.
+ * - `handleCallback(query)`→ Exchange an OAuth2 `code` for tokens and persist them.
+ * - `getStatus()`          → Report whether the user is currently authenticated.
+ * - `logout()`             → Clear the stored tokens, ending the session.
+ * - `getAccessToken()`     → Return a valid access token, refreshing if needed.
  *
- * Exports:
- * - Functions for user registration and login
- * - Utilities for session persistence and restoration
+ * Notes
+ * - Tokens are stored in `.token.json` at the project root with file permissions
+ *   restricted to the current user (mode 600).
+ * - This module is strictly **backend only**; frontend code should not import it.
+ * - Reads configuration (instance URL, client ID/secret, redirect URI) from
+ *   environment variables set in `.env`.
  */
 
 import fs from 'fs';

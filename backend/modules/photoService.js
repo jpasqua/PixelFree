@@ -1,9 +1,40 @@
 /**
- * photoService.js
+ * modules/photoService.js
+ * -----------------------
+ * High-level service for fetching and normalizing photos from a Pixelfed instance.
  *
- * Service layer for handling user profile photos.
- * Provides functions for uploading, retrieving, and deleting images,
- * abstracting away storage details (e.g., file system, cloud storage).
+ * This module provides a single entry point, `fetchPhotos(opts)`, that queries
+ * different Pixelfed timelines (tag, user, or public) and returns a uniform list
+ * of photo objects. It abstracts away endpoint details, authentication, and
+ * response normalization so that the rest of the backend can work with a clean
+ * photo model.
+ *
+ * Responsibilities
+ * - Build the correct Pixelfed API endpoint depending on the source type:
+ *   - `tag`   → /api/v1/timelines/tag/:tag
+ *   - `user`  → /api/v1/accounts/:id/statuses
+ *   - `public`→ /api/v1/timelines/public (with optional `local=true`)
+ * - Enforce limits (1–40) and fetch slightly more than requested, since not all
+ *   statuses include images.
+ * - Authenticate requests with a bearer token obtained from `auth.js`.
+ * - Normalize posts into plain JS objects with consistent fields:
+ *   `{ id, url, preview_url, created_at, author, author_display_name,
+ *      caption, post_url, location, tags }`.
+ * - Filter out non-image attachments.
+ * - Sort results newest-first and return only the requested number of photos.
+ *
+ * Exports
+ * - `async function fetchPhotos(opts: FetchArgs): Promise<Photo[]>`
+ *     - `opts.limit`  → number of photos to return (1–40)
+ *     - `opts.source` → one of:
+ *         { type:'tag', tag:string }
+ *         { type:'user', accountId:string }
+ *         { type:'public', localOnly?:boolean }
+ *
+ * Notes
+ * - Returns caption as raw HTML from Pixelfed (callers must sanitize if needed).
+ * - Uses `process.env.PIXELFED_INSTANCE` for the base instance URL.
+ * - This module does not handle caching; consumers may store results if needed.
  */
 
 import { getAccessToken } from './auth.js';
