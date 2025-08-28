@@ -246,7 +246,7 @@ app.post('/api/photos/query', asyncHandler(async (req, res) => {
 // --- Start server ---
 app.listen(PORT, () => {
   console.log(`✅ PixelFree backend listening at http://localhost:${PORT}`);
-  console.log(`   Try http://localhost:${PORT}/`);
+  console.log(`   Navigate to http://localhost:${PORT}/`);
 });
 
 // Final error mapper (must be after all routes/middleware)
