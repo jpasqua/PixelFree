@@ -1,24 +1,37 @@
 /**
- * @module accounts
- * 
- * Provides account management functionality for the application, including
- * user authentication, session handling, and interaction with persistent
- * account data storage.
- * 
- * ## Responsibilities
- * - Create, retrieve, and manage user accounts
- * - Handle authentication (login, logout)
- * - Manage session tokens and related validation
- * - Interface with backend services or the database layer for account data
- * 
- * ## Exports
- * - Functions to manage user login and logout
- * - Functions to fetch and update account details
- * - Utility methods for session verification
- * 
- * ## Notes
- * - Works in conjunction with `pixelfedApi` for API calls when needed
- * - Central point for logic related to accounts and user identity
+ * modules/accounts.js
+ * -------------------
+ * Resolve Fediverse/Pixelfed account identifiers (“acct” strings) to numeric
+ * account IDs, with input normalization, robust error typing, and a small
+ * in-memory cache.
+ *
+ * Purpose
+ *   Accepts a variety of user inputs (e.g., "name", "@name", "name@host",
+ *   "@name@host", or full profile URLs like "https://host/@name") and resolves
+ *   them to a Pixelfed/Mastodon account ID by querying the configured instance.
+ *
+ * Error model (typed)
+ *   - ValidationError  → malformed/empty acct input (e.g., bad domain)
+ *   - NotFoundError    → no matching account after all strategies
+ *   - RateLimitError   → HTTP 429 from upstream (includes optional retryAfter)
+ *   - UpstreamError    → network failures or 5xx responses from upstream
+ *
+ * Caching
+ *   Maintains a simple Map (normalized acct → accountId) to avoid repeated
+ *   resolutions within the process lifetime.
+ *
+ * Configuration & auth
+ *   - Base instance URL comes from `process.env.PIXELFED_INSTANCE` (defaults to https://pixelfed.social).
+ *   - Uses `getAccessToken()` to attach a Bearer token when calling the remote API.
+ *
+ * Exports
+ *   - async function resolveAccountId(acct: string): Promise<string>
+ *       Normalize & validate input; resolve to a single account ID or throw a typed error.
+ *   - async function resolveManyAccts(accts: Iterable<string>): Promise<string[]>
+ *       Deduplicate, normalize, resolve each (with caching), return unique IDs.
+ *
+ * Notes
+ *   - JSON parsing is tolerant; 4xx responses that aren’t thrown by design fall through to the next strategy.
  */
 
 import { getAccessToken } from './auth.js';

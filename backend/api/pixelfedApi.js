@@ -1,34 +1,39 @@
 /**
  * pixelfedApi.js
  * ----------------
- * This module provides functions for interacting with the Pixelfed API from the frontend.
- * It encapsulates all network calls related to Pixelfed instances, posts, and user data,
- * serving as a dedicated API layer between the frontend UI components and the remote server.
+ * HTTP helper for calling a Pixelfed instance.
  *
- * Responsibilities:
- *   - Constructing and sending HTTP requests to the Pixelfed API.
- *   - Handling authentication tokens (if applicable).
- *   - Parsing and returning JSON responses for use in the frontend.
- *   - Abstracting away API endpoint details to simplify usage elsewhere in the app.
+ * This module exposes a single function, `get(path, options)`, which builds and
+ * executes a GET request against the configured Pixelfed base URL, then returns
+ * the parsed JSON response. It centralizes URL construction, query-parameter
+ * handling, headers (including optional auth), and consistent error handling.
  *
- * Exports:
- *   - Functions to query Pixelfed servers for posts, accounts, media, etc.
- *   - Utility methods for managing pagination and search requests.
+ * Responsibilities
+ * - Join the configured base instance URL (from environment) with a relative `path`
+ * - Append query parameters (if provided) to the request URL
+ * - Set request headers (e.g., `Authorization: Bearer <token>` when supplied)
+ * - Perform the network call and parse JSON results
+ * - Throw informative errors on non-2xx responses so callers can map them to API responses
  *
- * Usage:
- *   Import this module in frontend components or other API utilities that need
- *   to interact with Pixelfed:
+ * Exports
+ * - `async function get(path, { params, headers, token, ...other } = {})`
+ *    - `path`    : string   — relative Pixelfed API path (e.g., `/api/v1/timelines/tag/<tag>`)
+ *    - `params`  : object   — key/value pairs serialized onto the query string
+ *    - `headers` : object   — additional headers to merge into the request
+ *    - `token`   : string   — optional OAuth access token; when present, adds `Authorization` header
+ *    - `other`   : object   — any extra fetch/retry options this module supports
  *
- *     import { searchPixelfed, getPostDetails } from './api/pixelfedApi.js';
+ * Usage example:
+ *   import { get } from '../api/pixelfedApi.js';
  *
- *     const results = await searchPixelfed('otters');
- *     console.log(results);
+ *   const data = await get(
+ *     `/api/v1/timelines/tag/${encodeURIComponent(tag)}`,
+ *     { params: { limit: 20 }, token: accessToken }
+ *   );
  *
- * Notes:
- *   - Error handling: All functions should throw errors on failed requests
- *     so that callers can handle them gracefully.
- *   - This file should remain focused purely on Pixelfed API logic and not
- *     contain any UI or DOM code.
+ * Notes
+ * - OAuth login and token refresh are handled elsewhere; pass a valid `token` if needed.
+ * - The Pixelfed base URL is read from environment (e.g., `PIXELFED_INSTANCE`).
  */
 
 import { withRetry } from '../utils/http.js';
