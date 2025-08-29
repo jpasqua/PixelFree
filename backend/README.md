@@ -13,6 +13,7 @@ A Pixelfed client ID (public) and corresponding client secret have already been 
 
 In the future the backend will be enhanced to provide:
 
+* Virtual albums (see [separate document with thoughts on virtual albums](VirtAlbums.md))
 * "Favorites" albums
 * Image caching (see [separate caching strategy document](Caching.md))
 * Time-based queries (e.g. new photos since)
