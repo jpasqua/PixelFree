@@ -1,8 +1,8 @@
 // backend/api/albumsRoutes.js
 // Express routes for Virtual Albums (create/list/get/update/toggle/delete/refresh + photos)
-// Assumes: ESM, Node 18+, and your db singleton + repos are in backend/db/*
 
 import express from 'express';
+import * as photoFetcher from '../services/photoFetcher.js';
 import * as albumRepo from '../db/albumRepo.js';
 import * as photoRepo from '../db/photoRepo.js';
 import { ensureAuthed } from '../utils/authMiddleware.js';
@@ -47,11 +47,49 @@ export default function mountAlbumRoutes(app) {
         type: row.query_type,
         tags: row.query_tags ? JSON.parse(row.query_tags) : undefined,
         users: row.query_users ? JSON.parse(row.query_users) : undefined,
-        tagMode: row.query_tagmode,
+        tagmode: row.query_tagmode,
         limit: row.query_limit
       },
       refresh,
       // lightweight stats: call only when needed (list endpoint also wants total)
+    };
+  }
+
+  function mapPhotoRow(row) {
+    // tags_json → tags[]
+    let tags = [];
+    if (row?.tags_json) {
+      try {
+        const arr = JSON.parse(row.tags_json);
+        if (Array.isArray(arr)) tags = arr;
+      } catch (_) { /* ignore */ }
+    }
+
+    // Shape to the same contract used by /api/photos/query
+    return {
+      id: row.status_id,           // keep both for convenience
+      status_id: row.status_id,
+      created_at: row.created_at || null,
+
+      author: {
+        id: row.author_id ?? null,
+        acct: row.author_acct ?? null,
+        username: row.author_username ?? null,
+        display_name: row.author_display ?? null,
+        avatar: row.author_avatar ?? null,
+      },
+      author_display_name: row.author_display ?? null,
+
+      caption: row.caption_html ?? null,  // your client uses captionHtml OR content
+      post_url: row.post_url ?? null,
+
+      tags,                              // normalized array
+
+      url: row.url ?? null,
+      preview_url: row.preview_url ?? row.url ?? null,
+
+      // If you later left-join a media manifest, map to local_path here
+      local_path: row.local_path ?? null
     };
   }
 
@@ -60,9 +98,9 @@ export default function mountAlbumRoutes(app) {
     if (!['tag', 'user', 'compound'].includes(type || '')) {
       return 'query.type must be "tag" | "user" | "compound"';
     }
-    const tagMode = q.tagMode || 'any';
-    if (!['any', 'all'].includes(tagMode)) {
-      return 'query.tagMode must be "any" | "all"';
+    const tagmode = q.tagmode || 'any';
+    if (!['any', 'all'].includes(tagmode)) {
+      return 'query.tagmode must be "any" | "all"';
     }
     const limit = q.limit == null ? 20 : Number(q.limit);
     if (!Number.isFinite(limit) || limit < 1 || limit > 40) {
@@ -85,6 +123,22 @@ export default function mountAlbumRoutes(app) {
     return null;
   }
 
+  // Small helpers (local)
+  function parseJsonArray(s) {
+    if (!s) return [];
+    try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch { return []; }
+  }
+
+  function inferType(row) {
+    if (row?.query_type) return String(row.query_type);
+    const tags = parseJsonArray(row?.query_tags);
+    const users = parseJsonArray(row?.query_users);
+    if (tags.length && users.length) return 'compound';
+    if (tags.length) return 'tag';
+    if (users.length) return 'user';
+    return 'tag';
+  }
+
   // -----------------------------
   // Routes
   // -----------------------------
@@ -101,7 +155,7 @@ export default function mountAlbumRoutes(app) {
         type: query.type,
         tags: normalizeTags(query.tags),
         users: parseUsers(query.users),
-        tagMode: query.tagMode || 'any',
+        tagmode: query.tagmode || 'any',
         limit: clamp(Number(query.limit ?? 20), 1, 40)
       };
       const err = validateQuery(nq);
@@ -180,7 +234,7 @@ export default function mountAlbumRoutes(app) {
           type: query.type ?? undefined,
           tags: query.tags != null ? normalizeTags(query.tags) : undefined,
           users: query.users != null ? parseUsers(query.users) : undefined,
-          tagMode: query.tagMode ?? undefined,
+          tagmode: query.tagmode ?? undefined,
           limit: query.limit != null ? clamp(Number(query.limit), 1, 40) : undefined
         };
         const err = validateQuery({ ...nq, type: nq.type ?? (albumRepo.get(id)?.query_type) });
@@ -242,19 +296,74 @@ export default function mountAlbumRoutes(app) {
     }
   });
 
-  // Manual refresh (stub: wire to your refresh service when ready)
-  router.post('/:id/refresh', async (req, res) => {
+
+  // Manual refresh
+  router.post('/:id/refresh', ensureAuthed, async (req, res) => {
     try {
       const row = albumRepo.get(req.params.id);
-      if (!row) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      if (!row) {
+        return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      }
 
-      // TODO: call your real refresh service:
-      // const result = await refreshAlbum(shapeAlbumOut(row));
-      // For now, just respond that the request is accepted.
-      res.status(202).json({ id: row.id, refreshed: false, message: 'Refresh queued (stub)' });
+      // Normalize album query pieces from row
+      const type    = inferType(row); // 'tag' | 'user' | 'compound'
+      const tagsRaw = parseJsonArray(row.query_tags);      // e.g. ["italy","travel"]
+      const users   = parseJsonArray(row.query_users);     // expected: resolved account IDs if that's how you store them
+      const tagmode = String(row.query_tagmode || 'any').toLowerCase(); // 'any' | 'all'
+
+      // Safety-normalize tags: strip '#', lowercase, unique
+      const tags = Array.from(new Set(
+        (Array.isArray(tagsRaw) ? tagsRaw : [])
+          .map(s => String(s).replace(/^#/, '').trim().toLowerCase())
+          .filter(Boolean)
+      ));
+
+      // Decide fetch size: use album limit if present; otherwise default & add headroom for filtering
+      const baseLimit = Number(row.page_limit || row.limit || 24);
+      const headroom  = Math.min(baseLimit * 3, 120);
+
+      // Fetch candidates based on album type
+      let candidates = [];
+      if (type === 'tag') {
+        // For tagmode='all', fetcher should locally AND-match tags
+        candidates = await photoFetcher.getLatestPhotosForTags(tags, { limit: headroom, tagmode });
+      } else if (type === 'user') {
+        // If you store accts instead, resolve before calling
+        candidates = await photoFetcher.getLatestPhotosForUsers(users, { limit: headroom });
+      } else {
+        // compound: fetch by users, then local tag filter (any/all)
+        candidates = await photoFetcher.getLatestPhotosCompound(
+          { tags, accountIds: users },
+          { limit: headroom, tagmode }
+        );
+      }
+      candidates = Array.isArray(candidates) ? candidates : [];
+
+      // Upsert photos into DB → expect array of status_ids back
+      const upsertedIdsRaw = photoRepo.upsertMany ? photoRepo.upsertMany(candidates) : [];
+      const upsertedIds = Array.isArray(upsertedIdsRaw) ? upsertedIdsRaw : [];
+
+      // Clean IDs (remove falsy + de-dup) before linking into album_items
+      const cleanIds = Array.from(new Set(upsertedIds.filter(Boolean)));
+
+      // Link into album_items (INSERT OR IGNORE handled in repo)
+      const linkedCount = albumRepo.addPhotos(row.id, cleanIds);
+
+      // Update album refresh timestamp (add watermarks later if you track them)
+      albumRepo.update(row.id, { last_checked_at: new Date().toISOString() });
+
+      return res.json({
+        albumId: row.id,
+        type,
+        tagmode,
+        requested: headroom,
+        fetched: candidates.length,
+        upserted: cleanIds.length,
+        linked: linkedCount
+      });
     } catch (e) {
       console.error('Refresh album failed:', e);
-      res.status(500).json({ error: { code: 'InternalError', message: 'failed to refresh album' } });
+      return res.status(500).json({ error: { code: 'InternalError', message: 'failed to refresh album' } });
     }
   });
 
@@ -266,13 +375,19 @@ export default function mountAlbumRoutes(app) {
       const limit = clamp(Number(req.query.limit ?? 20), 1, 100);
 
       const albumRow = albumRepo.get(id);
-      if (!albumRow) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      if (!albumRow) {
+        return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      }
 
-      const { items, total } = photoRepo.listForAlbum(id, { offset, limit });
-      res.json({ items, total, offset, limit });
+      const result = photoRepo.listForAlbum(id, { offset, limit }) || {};
+      const rows   = Array.isArray(result.items) ? result.items : [];
+      const total  = Number.isFinite(result.total) ? result.total : rows.length;
+
+      const items = rows.map(mapPhotoRow);
+      return res.json({ items, total, offset, limit });
     } catch (e) {
       console.error('List album photos failed:', e);
-      res.status(500).json({ error: { code: 'InternalError', message: 'failed to list album photos' } });
+      return res.status(500).json({ error: { code: 'InternalError', message: 'failed to list album photos' } });
     }
   });
 
