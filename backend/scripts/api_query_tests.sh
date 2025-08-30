@@ -38,7 +38,7 @@ curl -s "$BASE/api/photos/query" \
 # 2) Tags ALL: find posts that include ALL specified tags  [AND across tags]
 curl -s "$BASE/api/photos/query" \
   -H 'Content-Type: application/json' \
-  -d '{"type":"tag","tags":["retrocomputing","classicmac"],"tagMode":"all","limit":20}' | $JQ
+  -d '{"type":"tag","tags":["italy","travel"],"tagmode":"all","limit":20}' | $JQ
 
 # 3) Tag normalization: with # and mixed case (should normalize)
 curl -s "$BASE/api/photos/query" \
@@ -73,7 +73,7 @@ curl -s "$BASE/api/photos/query" \
 # 7) Compound ALL: ALL tags must be present, from ANY of the users  [AND across tags, OR across users]
 curl -s "$BASE/api/photos/query" \
   -H 'Content-Type: application/json' \
-  -d '{"type":"compound","tags":["retrocomputing","classicmac"],"users":{"accts":["@bitsplusatoms@mastodon.social","@icm@mastodon.sdf.org"]},"tagMode":"all","limit":20}' | $JQ
+  -d '{"type":"compound","tags":["retrocomputing","classicmac"],"users":{"accts":["@bitsplusatoms@mastodon.social","@icm@mastodon.sdf.org"]},"tagmode":"all","limit":20}' | $JQ
 
 ########################################################
 # PARTIAL ERRORS & VALIDATION

@@ -26,7 +26,7 @@ Create a new virtual album from a query definition.
     "type": "tag" | "user" | "compound",
     "tags": ["retrocomputing","classicmac"],
     "users": { "accts": ["@bits@mastodon.social"] },
-    "tagMode": "any" | "all",
+    "tagmode": "any" | "all",
     "limit": 40
   },
   "refresh": { "intervalMs": 600000 }
@@ -39,7 +39,7 @@ Create a new virtual album from a query definition.
 {
   "id": "alb_01HQ0…",
   "name": "Retro Macs",
-  "query": { "type":"tag","tags":["retrocomputing","classicmac"],"tagMode":"all","limit":40 },
+  "query": { "type":"tag","tags":["retrocomputing","classicmac"],"tagmode":"all","limit":40 },
   "refresh": { "intervalMs": 600000, "last_checked_at": null, "backoff_until": null,
                "since_id": null, "max_id": null },
   "stats": { "total": 0 },
@@ -59,7 +59,7 @@ Create a new virtual album from a query definition.
 {
   "id": "alb_01HQ0…",
   "name": "Retro Macs",
-  "query": { "type":"tag","tags":["retrocomputing","classicmac"],"tagMode":"all","limit":40 },
+  "query": { "type":"tag","tags":["retrocomputing","classicmac"],"tagmode":"all","limit":40 },
   "refresh": { "intervalMs": 600000, "last_checked_at": "2025-08-29T02:30:02Z", "since_id": "8569…" },
   "stats": { "total": 128, "last_added": "2025-08-29T02:28:30Z" },
   "enabled": true,
@@ -116,7 +116,7 @@ These are abstractions for repositories and services used internally.
 - `update(id, patch)`
 - `toggle(id, enabled)`
 - `remove(id)`
-- `appendItems(albumId, statusIds)`
+- `addPhotos(albumId, statusIds)`
 - `listItems(albumId, { offset, limit })`
 
 ### 2.2 Photo Repository
@@ -149,7 +149,7 @@ Common status codes
 + 200 OK normal read/refresh.
 + 201 Created on album creation.
 + 204 No Content on delete.
-+ 400 Bad Request invalid query (e.g., unknown tagMode, empty query).
++ 400 Bad Request invalid query (e.g., unknown tagmode, empty query).
 + 401 Unauthorized not logged in.
 + 404 Not Found album ID doesn’t exist.
 + 409 Conflict conflicting name (if you enforce uniqueness).
@@ -306,7 +306,7 @@ This separation lets us refresh quickly, render from local data, and throttle ne
 	    • On refresh, we do not fetch full media by default. We keep preview_url for fast first paint.
 	    • A background step (or on-view) may fetch the original, writing a row to media_manifest and the file to disk.
 
-**Why local filtering matters**: timelines served by federated instances can be incomplete; persisting posts in photos and filtering in SQL/JS guarantees correctness for `tagMode=all` and compound queries.
+**Why local filtering matters**: timelines served by federated instances can be incomplete; persisting posts in photos and filtering in SQL/JS guarantees correctness for `tagmode=all` and compound queries.
 
 
 **3) Serving Data (DB → Frontend)**
@@ -344,7 +344,7 @@ This separation lets us refresh quickly, render from local data, and throttle ne
 **6) Normalization & Tag Semantics**
 
 + Tags are normalized (lower-cased, # removed) at write time into photos.tags.
-+ tagMode=all queries are satisfied by local filtering against this normalized list; we do not rely on remote tag timelines to provide exact set intersections.
++ tagmode=all queries are satisfied by local filtering against this normalized list; we do not rely on remote tag timelines to provide exact set intersections.
   + This ensures correctness even if upstream instances under-deliver tag results.
 
 **7) Logout & Multi-User Considerations**
@@ -358,7 +358,7 @@ This separation lets us refresh quickly, render from local data, and throttle ne
 **8) Testing Hooks**
 
 + Deterministic refresh: allow a test mode that bypasses jitter and uses fixed since_id inputs.
-+ Fixtures: load canned posts into photos and verify tagMode=all and compound logic with local filtering.
++ Fixtures: load canned posts into photos and verify tagmode=all and compound logic with local filtering.
 + Eviction: simulate quota pressure and assert correct media_manifest rows remain.
 
 

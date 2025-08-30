@@ -31,7 +31,7 @@ async function main() {
     query: {
       type: 'tag',
       tags: ['retrocomputing', 'classicmac'],
-      tagMode: 'any',
+      tagmode: 'any',
       limit: 10
     },
     refresh: { intervalMs: 600000 }, // 10 min
@@ -103,7 +103,7 @@ async function main() {
 
   // 3) Link those photos into the album (album_items join)
   const statusIds = photos.map(p => p.status_id);
-  albumRepo.appendItems(album.id, statusIds);
+  albumRepo.addPhotos(album.id, statusIds);
   log('Linked status_ids to album', { albumId: album.id, statusIds });
 
   // 4) List photos for the album (ordered newest-first by added_at)

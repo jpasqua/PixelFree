@@ -22,7 +22,7 @@ Each saved “virtual album” (your query) maintains:
 
 - `type`: `tag` | `user` | `compound`
 - `tags[]` (normalized, no `#`)
-- `tagMode`: `all` | `any` (controls whether all tags must match or any may match; applies to `type: tag` and the tag portion of `type: compound`)
+- `tagmode`: `all` | `any` (controls whether all tags must match or any may match; applies to `type: tag` and the tag portion of `type: compound`)
 - `user_ids[]` or `accts[]` (resolved to IDs)
 - **Refresh policy**: `intervalMs` (user-set), `last_checked_at`, `backoff_until` (when rate-limited)
 - **Pagination watermarks**:
@@ -34,17 +34,17 @@ UI can expose: **Refresh every**: _5 min / 15 min / hourly_, plus **Manual refre
 Also expose **Match mode**: _All tags must match_ / _Any tag may match_.
 
 ## Fetch strategies by album type
-- **Tag (`tagMode = any`)**: poll `/timelines/tag/:tag` separately for each tag, then union the results.
-- **Tag (`tagMode = all`)**:  
+- **Tag (`tagmode = any`)**: poll `/timelines/tag/:tag` separately for each tag, then union the results.
+- **Tag (`tagmode = all`)**:  
   - Preferred: fetch each tag timeline, intersect results locally (more reliable across federation).  
   - Alternate: use server-side multiple-tag queries if supported by the instance (less common).
 - **User OR**: poll `/accounts/:id/statuses` with `since_id`.
 - **Tags+Users AND**:
   - Fetch user posts (`/accounts/:id/statuses`).
   - Filter locally by tags.
-  - If `tagMode = all`, require all specified tags to be present; if `any`, require at least one.
+  - If `tagmode = all`, require all specified tags to be present; if `any`, require at least one.
 
-Keep a larger headroom (e.g., request 3× the album limit) so filtering has enough candidates, especially for `tagMode = all`.
+Keep a larger headroom (e.g., request 3× the album limit) so filtering has enough candidates, especially for `tagmode = all`.
 
 ## Polling & backoff
 - **Scheduler** runs every minute, but **only touches albums whose `intervalMs` has elapsed**.
@@ -62,16 +62,16 @@ async function refreshAlbum(album) {
   let posts = [];
 
   if (album.type === 'tag') {
-    if (album.tagMode === 'any') {
+    if (album.tagmode === 'any') {
       posts = await unionTagTimelines(album.tags, params);
-    } else { // tagMode === 'all'
+    } else { // tagmode === 'all'
       posts = await intersectTagTimelines(album.tags, params);
     }
   } else if (album.type === 'user') {
     posts = await fetchUsersStatuses(album.user_ids, params);
   } else { // compound: users + tags
     const candidates = await fetchUsersStatuses(album.user_ids, params);
-    posts = filterByTags(candidates, album.tags, album.tagMode);
+    posts = filterByTags(candidates, album.tags, album.tagmode);
   }
 
   const newIds = upsertPosts(posts);

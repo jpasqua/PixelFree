@@ -17,7 +17,7 @@ export default function mountPhotosRoutes(app) {
 
   // -------------------------------
   // POST /api/photos/query
-  // Advanced multi-source query (tags/users with OR + AND + tagMode any|all)
+  // Advanced multi-source query (tags/users with OR + AND + tagmode any|all)
   // -------------------------------
   router.post('/query', wrap(async (req, res) => {
     const body = req.body || {};
@@ -31,8 +31,8 @@ export default function mountPhotosRoutes(app) {
         .filter(Boolean)));
       if (!tags.length) throw new ValidationError('tags required');
 
-      const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
-      const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit, tagMode });
+      const tagmode = String(body.tagmode || 'any').toLowerCase(); // 'any' | 'all'
+      const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit, tagmode });
       return res.json(photos);
     }
 
@@ -87,10 +87,10 @@ export default function mountPhotosRoutes(app) {
         throw new ValidationError('tags or users required');
       }
 
-      const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
+      const tagmode = String(body.tagmode || 'any').toLowerCase(); // 'any' | 'all'
       const photos = await photoFetcher.getLatestPhotosCompound(
         { tags, accountIds: uniqueIds },
-        { limit, tagMode }
+        { limit, tagmode }
       );
       return errors.length ? res.json({ photos, errors }) : res.json(photos);
     }

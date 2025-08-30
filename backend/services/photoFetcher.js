@@ -16,7 +16,7 @@
  * - Normalize raw statuses into a consistent `Photo` object shape:
  *     `{ id, created_at, author, author_display_name, caption, post_url,
  *        tags[], url, preview_url }`
- * - Support OR vs ALL tag logic (`tagMode` option).
+ * - Support OR vs ALL tag logic (`tagmode` option).
  * - Deduplicate posts and enforce configurable limits (1–40).
  * - Handle transient errors and rate limits with meaningful error types.
  *
@@ -186,7 +186,7 @@ function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
 export async function getLatestPhotosForTags(tagsInput, opts = {}) {
   const limit = clamp(Number(opts.limit) || 20, 1, 40);
-  const tagMode = String(opts.tagMode || 'any').toLowerCase(); // 'any' | 'all'
+  const tagmode = String(opts.tagmode || 'any').toLowerCase(); // 'any' | 'all'
   const tags = (tagsInput || [])
     .map(s => String(s).replace(/^#/, '').trim())
     .filter(Boolean);
@@ -205,7 +205,7 @@ export async function getLatestPhotosForTags(tagsInput, opts = {}) {
   ).values()];
 
   const filtered = candidates.filter(p =>
-    tagMode === 'all'
+    tagmode === 'all'
       ? hasAllTags(p.tags, tags)
       : hasAnyTag(p.tags, tags)
   );
@@ -235,14 +235,14 @@ export async function getLatestPhotosForUsers(accountIds, opts) {
 
 export async function getLatestPhotosCompound(input, opts = {}) {
   const limit = clamp(Number(opts.limit) || 20, 1, 40);
-  const tagMode = String(opts.tagMode || 'any').toLowerCase(); // 'any' | 'all'
+  const tagmode = String(opts.tagmode || 'any').toLowerCase(); // 'any' | 'all'
   const tags = (input.tags || [])
     .map(s => String(s).replace(/^#/, '').trim())
     .filter(Boolean);
   const users = (input.accountIds || []).filter(Boolean);
 
   if (tags.length && !users.length) {
-    return getLatestPhotosForTags(tags, { limit, tagMode });
+    return getLatestPhotosForTags(tags, { limit, tagmode });
   }
   if (users.length && !tags.length) {
     return getLatestPhotosForUsers(users, { limit });
@@ -254,7 +254,7 @@ export async function getLatestPhotosCompound(input, opts = {}) {
   const userPosts = await getLatestPhotosForUsers(users, { limit: headroom });
 
   const filtered = userPosts.filter(p =>
-    tagMode === 'all'
+    tagmode === 'all'
       ? hasAllTags(p.tags, tags)
       : hasAnyTag(p.tags, tags)
   );

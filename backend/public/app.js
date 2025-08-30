@@ -13,7 +13,7 @@ const tagsInput  = document.getElementById('tagsInput');
 const usersInput = document.getElementById('usersInput');
 const limitInput = document.getElementById('limitInput');
 const searchBtn  = document.getElementById('searchBtn');
-const tagModeSelect = document.getElementById('tagModeSelect');
+const tagmodeSelect = document.getElementById('tagmodeSelect');
 
 const grid    = document.getElementById('imageGrid');        // required
 const loading = document.getElementById('loadingIndicator'); // optional spinner
@@ -98,7 +98,7 @@ async function checkAuth() {
   try {
     statusEl && (statusEl.textContent = 'Checking auth...');
     const s = await getJSON('/api/auth/status');
-    if (s.authenticated) {
+    if (s.isAuthenticated) {
       isAuthenticated = true;
       statusEl && (statusEl.textContent = 'Authenticated');
       loginBtn && (loginBtn.hidden = true);
@@ -225,7 +225,7 @@ function buildQueryBody() {
   const tags  = normalizeTags(splitList(tagsInput?.value));
   const accts = normalizeAccts(splitList(usersInput?.value));
   const limit = getLimit();
-  const tagMode = (tags.length ? (tagModeSelect?.value || 'any') : 'any').toLowerCase(); // only matters if tags present
+  const tagmode = (tags.length ? (tagmodeSelect?.value || 'any') : 'any').toLowerCase(); // only matters if tags present
 
   if (!tags.length && !accts.length) {
     alert('Please enter at least one tag or one user.');
@@ -233,9 +233,9 @@ function buildQueryBody() {
   }
 
   if (tags.length && accts.length) {
-    return { type: 'compound', tags, users: { accts }, limit, tagMode };
+    return { type: 'compound', tags, users: { accts }, limit, tagmode };
   } else if (tags.length) {
-    return { type: 'tag', tags, limit, tagMode };
+    return { type: 'tag', tags, limit, tagmode };
   } else {
     return { type: 'user', accts, limit };
   }

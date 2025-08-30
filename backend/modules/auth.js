@@ -98,7 +98,7 @@ export function getStatus() {
   const t = readToken();
   if (!t) return { authenticated: false };
   const expiresAt = t.created_at + t.expires_in;
-  return { authenticated: true, expiresAt };
+  return { isAuthenticated: true, expiresAt };
 }
 
 export function logout() {
