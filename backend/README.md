@@ -13,9 +13,9 @@ A Pixelfed client ID (public) and corresponding client secret have already been 
 
 In the future the backend will be enhanced to provide:
 
-* Virtual albums (see [separate document with thoughts on virtual albums](VirtAlbums.md))
+* Virtual albums (see [separate document with thoughts on virtual albums](doc/VirtAlbums.md))
 * "Favorites" albums
-* Image caching (see [separate caching strategy document](Caching.md))
+* Image caching (see [separate caching strategy document](doc/Caching.md))
 * Time-based queries (e.g. new photos since)
 * Full-coverage unit tests
 
@@ -118,6 +118,8 @@ Notes:
 
 5. **Access the test frontend**
    - Open `http://localhost:3000` in a browser.
+
+Ypu may also find these notes useful for [developing/running the project with VS Code](doc/VSCodeNotes.md).
 
 ## Basic Tests of the Query API
 
