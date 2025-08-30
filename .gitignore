@@ -41,7 +41,7 @@ build/
 Thumbs.db
 
 # IDE / Editor settings
-.vscode/
+.vscode/*
 !.vscode/launch.json
 .idea/
 *.swp
