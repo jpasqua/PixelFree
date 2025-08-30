@@ -1,5 +1,5 @@
 // backend/api/authRoutes.js
-// Auth routes extracted from server.js, preserving existing behavior.
+// Auth routes expose authentication functionality to the client.
 
 import express from 'express';
 import * as auth from '../modules/auth.js';

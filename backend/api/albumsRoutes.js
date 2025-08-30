@@ -7,9 +7,6 @@ import * as albumRepo from '../db/albumRepo.js';
 import * as photoRepo from '../db/photoRepo.js';
 import { ensureAuthed } from '../utils/authMiddleware.js';
 
-// If you already have an auth middleware, pass it in when mounting:
-//   mountAlbumRoutes(app, { ensureAuthed })
-// Otherwise this defaults to a no-op.
 export default function mountAlbumRoutes(app) {
   const router = express.Router();
   router.use(ensureAuthed);

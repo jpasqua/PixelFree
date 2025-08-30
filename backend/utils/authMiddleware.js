@@ -2,9 +2,7 @@
 // Express middleware for authentication gating in PixelFree.
 //
 // Provides guard functions that check whether the backend
-// currently has valid authentication state. These middlewares
-// do not perform OAuth themselves; they simply reject requests
-// if the user is not already authenticated.
+// currently has valid authentication state.
 //
 // Usage example:
 //   import { ensureAuthed } from '../utils/authMiddleware.js';
