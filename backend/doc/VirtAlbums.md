@@ -170,19 +170,93 @@ Error body
 
 ## 4. SQLite Schema & Repositories
 
-### Schema highlights
+The PixelFree backend uses an SQLite database to manage virtual albums, photo metadata, media caching, and app-level state. The schema is designed to balance simplicity, performance, and federated content constraints, while allowing for future extension.
+
+**Schema Overview**
+
 - `albums` – stores album metadata, query, and refresh state.
 - `photos` – normalized metadata for fetched posts.
 - `album_items` – join table linking albums to photos.
 - `media_manifest` – manages local cache of media files.
 - `kv` – key-value store for app metadata.
 
-### Suggested implementation organization
-- `db.js` – SQLite bootstrap and schema init.
-- `albumRepo.js` – CRUD for albums and album_items.
-- `photoRepo.js` – CRUD and upserts for photos.
+### Table: albums
 
----
+**Purpose**: Defines virtual albums, which represent saved queries configured by the user.
+
+**Key Fields**:
+
+	•	id (PK): Unique identifier for the album.
+	•	name: Human-readable label for the album.
+	•	type: Query type (tag, user, compound).
+	•	tags[]: Normalized list of tags included in the query.
+	•	user_ids[]: Resolved account IDs to restrict posts by author.
+	•	refresh_interval_ms: How often this album should refresh.
+	•	last_checked_at: Timestamp of last successful refresh.
+	•	since_id, max_id: Pagination watermarks for incremental fetch.
+	•	status_ids[]: List of associated photo IDs (denormalized cache).
+
+**Usage**: Albums define how photos are selected and refreshed. For example: “All photos tagged #retrocomputing from @icm@mastodon.sdf.org, refreshed every 15 minutes.”
+
+### Table: photos
+
+**Purpose**: Stores normalized metadata for individual posts fetched from Pixelfed/Mastodon-compatible APIs.
+
+**Key Fields**:
+
+	•	status_id (PK): Global unique identifier for the post.
+	•	author_id, acct: Link to the post author.
+	•	created_at: When the post was created.
+	•	tags[]: Normalized tags applied to the post.
+	•	caption: Raw HTML/Markdown caption text.
+	•	post_url: Link to the original post.
+	•	url, preview_url: Media URLs provided by the source.
+
+**Usage**: Acts as the canonical store of post metadata. Multiple albums may reference the same photo without duplication.
+
+### Table: album_items
+
+**Purpose**: Join table linking albums ↔ photos, supporting many-to-many relationships.
+
+**Key Fields**
+
+	•	album_id (FK → albums.id).
+	•	photo_id (FK → photos.status_id).
+	•	added_at: When this photo was added to the album’s set.
+
+**Usage**: Provides efficient queries like “fetch all photos in album X” or “find all albums containing photo Y.”
+
+### Table: media_manifest
+
+**Purpose**: Manages the local cache of media files (downloaded images).
+
+**Key Fields**
+
+	•	status_id (FK → photos.status_id).
+	•	local_path: Filesystem location of cached media.
+	•	content_length: Size of the file on disk.
+	•	fetched_at: Last time this file was retrieved.
+	•	expires_at: Optional TTL for cache eviction.
+
+**Usage**: Allows the backend to serve media from local disk for offline use, while respecting quota limits (LRU/TTL eviction).
+
+### Table: kv
+
+**Purpose**: Lightweight key-value store for app-wide metadata.
+
+**Fields**
+
+	•	key: String key.
+	•	value: JSON/text payload.
+
+**Usage**: Used for global state such as:
+
+	•	Last schema migration applied.
+	•	Global sync watermarks.
+	•	Miscellaneous flags not worth creating full tables for.
+
+ER Diagram:
+![ER Diagram](images/DB_ER_Diagram.png)
 
 ## 5. Frontend Flow
 
