@@ -61,16 +61,12 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // --- Import modules ---
-import * as auth from './modules/auth.js';
-import * as photoService from './modules/photoService.js';
-import * as cache from './modules/cache.js';
-import * as settings from './modules/settings.js';
-import { fetchPhotos } from './modules/photoService.js';
-import * as photoFetcher from './services/photoFetcher.js';
-import { resolveAccountId } from './modules/accounts.js';
-import * as accounts from './modules/accounts.js';
+import mountAlbumRoutes from './api/albumsRoutes.js';
+import mountAuthRoutes from './api/authRoutes.js';
+import mountCacheSettingsRoutes from './api/cacheSettingsRoutes.js';
+import mountPhotosRoutes from './api/photosRoutes.js';
+import mountHealthRoutes from './api/healthRoutes.js';
 
-// NEW: error handling helpers + typed errors
 import { asyncHandler, errorMapper } from './utils/errorMapper.js';
 import { ValidationError } from './modules/errors.js';
 
@@ -81,167 +77,13 @@ app.get('/', (_req, res) => {
   res.type('text').send('PixelFree backend is running. Try /api/photos');
 });
 
-// Auth
-app.get('/api/login', (_req, res) => {
-  console.log('[API] GET /api/login');
-  const loginUrl = auth.getLoginUrl();
-  res.json({ loginUrl });
+mountPhotosRoutes(app);
+mountAuthRoutes(app);
+mountCacheSettingsRoutes(app);
+mountHealthRoutes(app);
+mountAlbumRoutes(app, {
+  // ensureAuthed, // uncomment if you want to require auth
 });
-
-app.get('/api/callback', asyncHandler(async (req, res) => {
-  console.log('[API] GET /api/callback' /*, req.query */);
-  await auth.handleCallback(req.query);   // exchanges code + saves .token.json
-  // Redirect somewhere useful: home or a small success page
-  res.redirect('/');                      // or res.redirect('/api/auth/status')
-}));
-
-app.get('/api/auth/status', (_req, res) => {
-  console.log('[API] GET /api/auth/status');
-  res.json(auth.getStatus());
-});
-
-app.post('/api/auth/logout', (_req, res) => {
-  console.log('[API] POST /api/auth/logout');
-  auth.logout();
-  res.json({ ok: true });
-});
-
-// Photos (legacy/simple)
-app.get('/api/photos', asyncHandler(async (req, res) => {
-  console.log('[API] GET /api/photos', req.query);
-
-  const cfg = settings.getSettings();
-  let source = cfg.source; // default (e.g., tag)
-  const limit = Math.min(Number(req.query.limit) || (cfg.sync?.fetchLimit ?? 20), 40);
-  const type = String(req.query.type || '').trim();
-
-  if (type === 'tag' && typeof req.query.tag === 'string') {
-    source = { type: 'tag', tag: req.query.tag.trim() };
-  } else if (type === 'public') {
-    source = { type: 'public', localOnly: String(req.query.localOnly) === 'true' };
-  } else if (type === 'user') {
-    let accountId = req.query.accountId && String(req.query.accountId).trim();
-    const acct = req.query.acct && String(req.query.acct).trim();
-
-    if (!accountId) {
-      if (!acct) {
-        throw new ValidationError('For type=user, provide accountId or acct.');
-      }
-      // resolveAccountId now throws typed errors which bubble to errorMapper
-      accountId = await resolveAccountId(acct);
-    }
-    source = { type: 'user', accountId };
-  }
-
-  const photos = await fetchPhotos({ limit, source });
-  res.json(photos);
-}));
-
-// Cache
-app.get('/api/cache/clear', asyncHandler(async (_req, res) => {
-  console.log('[API] GET /api/cache/clear');
-  await cache.clearCache();
-  res.json({ status: 'Cache cleared' });
-}));
-
-// Settings
-app.get('/api/settings', (_req, res) => {
-  console.log('[API] GET /api/settings');
-  res.json(settings.getSettings());
-});
-
-app.post('/api/settings', (req, res) => {
-  console.log('[API] POST /api/settings', req.body);
-  settings.updateSettings(req.body || {});
-  res.json({ status: 'Settings updated' });
-});
-
-// Health
-app.get('/api/health', asyncHandler(async (_req, res) => {
-  const health = await (await import('./modules/health.js')).getHealth();
-  res.json(health);
-}));
-
-// Advanced multi-source query (tags/users with OR + AND + tagMode any|all)
-app.post('/api/photos/query', asyncHandler(async (req, res) => {
-  const body = req.body || {};
-  const limitRaw = Number(body.limit);
-  const limit = Math.max(1, Math.min(Number.isFinite(limitRaw) ? limitRaw : 20, 40));
-
-  // ---- TAGS ONLY ----
-  if (body.type === 'tag') {
-    const tags = Array.from(new Set((body.tags || [])
-      .map(s => String(s).replace(/^#/, '').trim())
-      .filter(Boolean)));
-    if (!tags.length) throw new ValidationError('tags required');
-
-    const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
-    const photos = await photoFetcher.getLatestPhotosForTags(tags, { limit, tagMode });
-    return res.json(photos);
-  }
-
-  // ---- USERS ONLY ----
-  if (body.type === 'user') {
-    const providedIds = Array.isArray(body.accountIds) ? body.accountIds : [];
-    const accts = Array.isArray(body.accts) ? body.accts : [];
-    const errors = [];
-    const ids = providedIds.slice();
-
-    for (const a of accts) {
-      try {
-        const id = await resolveAccountId(a);
-        if (id) ids.push(id);
-      } catch (e) {
-        errors.push({ target: a, code: e.code || 'error', message: e.message });
-      }
-    }
-
-    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
-    if (!uniqueIds.length) throw new ValidationError('users required');
-
-    const photos = await photoFetcher.getLatestPhotosForUsers(uniqueIds, { limit });
-    return errors.length ? res.json({ photos, errors }) : res.json(photos);
-  }
-
-  // ---- COMPOUND (tags + users) ----
-  if (body.type === 'compound') {
-    const tags = Array.from(new Set((body.tags || [])
-      .map(s => String(s).replace(/^#/, '').trim())
-      .filter(Boolean)));
-
-    // Users can come as acct strings or as accountIds
-    const userAccts = Array.isArray(body.users?.accts) ? body.users.accts : [];
-    const userIdsIn = Array.isArray(body.users?.accountIds) ? body.users.accountIds : [];
-
-    const errors = [];
-    const ids = userIdsIn.slice();
-
-    // Resolve accts → ids with partial error collection
-    for (const a of userAccts) {
-      try {
-        const id = await resolveAccountId(a);
-        if (id) ids.push(id);
-      } catch (e) {
-        errors.push({ target: a, code: e.code || 'error', message: e.message });
-      }
-    }
-
-    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
-    if (!tags.length && !uniqueIds.length) {
-      throw new ValidationError('tags or users required');
-    }
-
-    const tagMode = String(body.tagMode || 'any').toLowerCase(); // 'any' | 'all'
-    const photos = await photoFetcher.getLatestPhotosCompound(
-      { tags, accountIds: uniqueIds },
-      { limit, tagMode }
-    );
-    return errors.length ? res.json({ photos, errors }) : res.json(photos);
-  }
-
-  throw new ValidationError('unsupported query type', { type: body.type });
-}));
-
 
 // --- Start server ---
 app.listen(PORT, () => {

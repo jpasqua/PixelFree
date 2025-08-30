@@ -1,0 +1,284 @@
+// backend/api/albumsRoutes.js
+// Express routes for Virtual Albums (create/list/get/update/toggle/delete/refresh + photos)
+// Assumes: ESM, Node 18+, and your db singleton + repos are in backend/db/*
+
+import express from 'express';
+import * as albumRepo from '../db/albumRepo.js';
+import * as photoRepo from '../db/photoRepo.js';
+import { ensureAuthed } from '../utils/authMiddleware.js';
+
+// If you already have an auth middleware, pass it in when mounting:
+//   mountAlbumRoutes(app, { ensureAuthed })
+// Otherwise this defaults to a no-op.
+export default function mountAlbumRoutes(app) {
+  const router = express.Router();
+  router.use(ensureAuthed);
+
+  // -----------------------------
+  // Helpers
+  // -----------------------------
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+  function normalizeTags(tags) {
+    if (!Array.isArray(tags)) return undefined;
+    return tags
+      .map(t => String(t || '').trim())
+      .filter(Boolean)
+      .map(t => t.replace(/^#/, '').toLowerCase());
+  }
+
+  function parseUsers(users) {
+    if (!users) return undefined;
+    // Accept either { accts:[], ids:[] } or a flat array of accts
+    if (Array.isArray(users)) return { accts: users.map(String) };
+    const out = {};
+    if (Array.isArray(users.accts)) out.accts = users.accts.map(String);
+    if (Array.isArray(users.ids)) out.ids = users.ids.map(String);
+    return (out.accts?.length || out.ids?.length) ? out : undefined;
+  }
+
+  function shapeAlbumOut(row) {
+    // albumRepo.get/list currently returns raw row; expose a consistent shape
+    const refresh = row.refresh_json ? JSON.parse(row.refresh_json) : {};
+    return {
+      id: row.id,
+      name: row.name,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      enabled: !!row.enabled,
+      query: {
+        type: row.query_type,
+        tags: row.query_tags ? JSON.parse(row.query_tags) : undefined,
+        users: row.query_users ? JSON.parse(row.query_users) : undefined,
+        tagMode: row.query_tagmode,
+        limit: row.query_limit
+      },
+      refresh,
+      // lightweight stats: call only when needed (list endpoint also wants total)
+    };
+  }
+
+  function validateQuery(q = {}) {
+    const type = q.type;
+    if (!['tag', 'user', 'compound'].includes(type || '')) {
+      return 'query.type must be "tag" | "user" | "compound"';
+    }
+    const tagMode = q.tagMode || 'any';
+    if (!['any', 'all'].includes(tagMode)) {
+      return 'query.tagMode must be "any" | "all"';
+    }
+    const limit = q.limit == null ? 20 : Number(q.limit);
+    if (!Number.isFinite(limit) || limit < 1 || limit > 40) {
+      return 'query.limit must be an integer between 1 and 40';
+    }
+    if (type === 'tag') {
+      const tags = normalizeTags(q.tags);
+      if (!tags?.length) return 'query.tags must be a non-empty array for type "tag"';
+    }
+    if (type === 'user') {
+      const users = parseUsers(q.users ?? q); // allow { accts:[] } or { users:{...} }
+      if (!users) return 'query.users must include accts[] and/or ids[] for type "user"';
+    }
+    if (type === 'compound') {
+      const tags = normalizeTags(q.tags);
+      const users = parseUsers(q.users);
+      if (!tags?.length) return 'compound query requires non-empty tags[]';
+      if (!users) return 'compound query requires users.accts[] and/or users.ids[]';
+    }
+    return null;
+  }
+
+  // -----------------------------
+  // Routes
+  // -----------------------------
+
+  // Create album
+  router.post('/', (req, res) => {
+    try {
+      const { name, query = {}, refresh = {}, enabled = true } = req.body || {};
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ error: { code: 'ValidationError', message: 'name is required' } });
+      }
+      // normalize/validate query
+      const nq = {
+        type: query.type,
+        tags: normalizeTags(query.tags),
+        users: parseUsers(query.users),
+        tagMode: query.tagMode || 'any',
+        limit: clamp(Number(query.limit ?? 20), 1, 40)
+      };
+      const err = validateQuery(nq);
+      if (err) return res.status(400).json({ error: { code: 'ValidationError', message: err } });
+
+      const row = albumRepo.create({
+        name,
+        query: nq,
+        refresh: {
+          intervalMs: Number(refresh.intervalMs ?? 600000),
+          last_checked_at: null,
+          backoff_until: null,
+          since_id: null,
+          max_id: null
+        },
+        enabled: !!enabled
+      });
+
+      // Add stats.total (count album_items)
+      const { total } = albumRepo.listItems(row.id, { limit: 1, offset: 0 });
+      res.status(201).json({ ...shapeAlbumOut(row), stats: { total } });
+    } catch (e) {
+      console.error('Create album failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to create album' } });
+    }
+  });
+
+  // Get album by id
+  router.get('/:id', (req, res) => {
+    try {
+      const row = albumRepo.get(req.params.id);
+      if (!row) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      const shaped = shapeAlbumOut(row);
+      const { total } = albumRepo.listItems(row.id, { limit: 1, offset: 0 });
+      res.json({ ...shaped, stats: { total } });
+    } catch (e) {
+      console.error('Get album failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to get album' } });
+    }
+  });
+
+  // List albums
+  router.get('/', (req, res) => {
+    try {
+      const offset = clamp(Number(req.query.offset ?? 0), 0, 10_000_000);
+      const limit = clamp(Number(req.query.limit ?? 20), 1, 100);
+      const enabledParam = req.query.enabled;
+      const enabled = enabledParam == null ? undefined : (String(enabledParam).toLowerCase() === 'true');
+
+      const { items, total } = albumRepo.list({ offset, limit, enabled });
+      res.json({
+        items: items.map(shapeAlbumOut).map(a => {
+          const { total: t } = albumRepo.listItems(a.id, { limit: 1, offset: 0 });
+          return { ...a, stats: { total: t } };
+        }),
+        total, offset, limit
+      });
+    } catch (e) {
+      console.error('List albums failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to list albums' } });
+    }
+  });
+
+  // Update album (name/query/refresh/enabled)
+  router.patch('/:id', (req, res) => {
+    try {
+      const id = req.params.id;
+      const patch = {};
+      const { name, enabled, query, refresh } = req.body || {};
+
+      if (name != null) patch.name = String(name);
+      if (enabled != null) patch.enabled = !!enabled;
+
+      if (query) {
+        const nq = {
+          type: query.type ?? undefined,
+          tags: query.tags != null ? normalizeTags(query.tags) : undefined,
+          users: query.users != null ? parseUsers(query.users) : undefined,
+          tagMode: query.tagMode ?? undefined,
+          limit: query.limit != null ? clamp(Number(query.limit), 1, 40) : undefined
+        };
+        const err = validateQuery({ ...nq, type: nq.type ?? (albumRepo.get(id)?.query_type) });
+        if (err && nq.type) { // only strict-validate if type is being changed/set explicitly
+          return res.status(400).json({ error: { code: 'ValidationError', message: err } });
+        }
+        patch.query = nq;
+      }
+
+      if (refresh) {
+        patch.refresh = {};
+        if (refresh.intervalMs != null) patch.refresh.intervalMs = Number(refresh.intervalMs);
+        if (refresh.since_id != null) patch.refresh.since_id = String(refresh.since_id);
+        if (refresh.max_id != null) patch.refresh.max_id = String(refresh.max_id);
+        if (refresh.backoff_until != null) patch.refresh.backoff_until = String(refresh.backoff_until);
+        if (refresh.last_checked_at != null) patch.refresh.last_checked_at = String(refresh.last_checked_at);
+      }
+
+      const updated = albumRepo.update(id, patch);
+      if (!updated) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+
+      const shaped = shapeAlbumOut(updated);
+      const { total } = albumRepo.listItems(id, { limit: 1, offset: 0 });
+      res.json({ ...shaped, stats: { total } });
+    } catch (e) {
+      console.error('Update album failed:', e);
+      if (String(e?.message).includes('AlbumNotFound')) {
+        return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      }
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to update album' } });
+    }
+  });
+
+  // Enable/disable
+  router.post('/:id/toggle', (req, res) => {
+    try {
+      const { enabled } = req.body || {};
+      if (enabled == null) {
+        return res.status(400).json({ error: { code: 'ValidationError', message: 'enabled boolean required' } });
+      }
+      const result = albumRepo.toggle(req.params.id, !!enabled);
+      res.json(result);
+    } catch (e) {
+      console.error('Toggle album failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to toggle album' } });
+    }
+  });
+
+  // Delete
+  router.delete('/:id', (req, res) => {
+    try {
+      const row = albumRepo.get(req.params.id);
+      if (!row) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+      albumRepo.remove(req.params.id);
+      res.status(204).end();
+    } catch (e) {
+      console.error('Delete album failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to delete album' } });
+    }
+  });
+
+  // Manual refresh (stub: wire to your refresh service when ready)
+  router.post('/:id/refresh', async (req, res) => {
+    try {
+      const row = albumRepo.get(req.params.id);
+      if (!row) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+
+      // TODO: call your real refresh service:
+      // const result = await refreshAlbum(shapeAlbumOut(row));
+      // For now, just respond that the request is accepted.
+      res.status(202).json({ id: row.id, refreshed: false, message: 'Refresh queued (stub)' });
+    } catch (e) {
+      console.error('Refresh album failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to refresh album' } });
+    }
+  });
+
+  // Get photos in an album
+  router.get('/:id/photos', (req, res) => {
+    try {
+      const id = req.params.id;
+      const offset = clamp(Number(req.query.offset ?? 0), 0, 10_000_000);
+      const limit = clamp(Number(req.query.limit ?? 20), 1, 100);
+
+      const albumRow = albumRepo.get(id);
+      if (!albumRow) return res.status(404).json({ error: { code: 'NotFound', message: 'album not found' } });
+
+      const { items, total } = photoRepo.listForAlbum(id, { offset, limit });
+      res.json({ items, total, offset, limit });
+    } catch (e) {
+      console.error('List album photos failed:', e);
+      res.status(500).json({ error: { code: 'InternalError', message: 'failed to list album photos' } });
+    }
+  });
+
+  // Mount under /api/albums
+  app.use('/api/albums', router);
+}
