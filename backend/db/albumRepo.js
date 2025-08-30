@@ -17,7 +17,7 @@ export function create({ name, query, refresh, enabled = true, id }) {
          query.type,
          query.tags ? JSON.stringify(query.tags) : null,
          query.users ? JSON.stringify(query.users) : null,
-         query.tagMode || 'any',
+         query.tagmode || 'any',
          query.limit ?? 20,
          JSON.stringify(refresh || {}));
 
@@ -52,7 +52,7 @@ export function update(id, patch) {
       patch.query?.type ?? current.query_type,
       patch.query?.tags ? JSON.stringify(patch.query.tags) : current.query_tags,
       patch.query?.users ? JSON.stringify(patch.query.users) : current.query_users,
-      patch.query?.tagMode ?? current.query_tagmode,
+      patch.query?.tagmode ?? current.query_tagmode,
       patch.query?.limit ?? current.query_limit,
       JSON.stringify({ ...JSON.parse(current.refresh_json), ...(patch.refresh || {}) }),
       id
@@ -65,13 +65,27 @@ export function remove(id) {
   db.prepare('DELETE FROM albums WHERE id=?').run(id);
 }
 
-export function appendItems(albumId, statusIds) {
+export function addPhotos(albumId, statusIds, { returnCount = true } = {}) {
+  if (!Array.isArray(statusIds) || statusIds.length === 0) {
+    return returnCount ? 0 : undefined;
+  }
+
   const added_at = nowIso();
-  const stmt = db.prepare('INSERT OR IGNORE INTO album_items (album_id, status_id, added_at) VALUES (?, ?, ?)');
+  const stmt = db.prepare(
+    'INSERT OR IGNORE INTO album_items (album_id, status_id, added_at) VALUES (?, ?, ?)'
+  );
+
   const tx = db.transaction((ids) => {
-    for (const sid of ids) stmt.run(albumId, sid, added_at);
+    let inserted = 0;
+    for (const sid of ids) {
+      const info = stmt.run(albumId, sid, added_at);
+      if (returnCount && info.changes > 0) inserted++;
+    }
+    return inserted;
   });
-  tx(statusIds);
+
+  const n = tx(statusIds);
+  return returnCount ? n : undefined;
 }
 
 export function listItems(albumId, { offset = 0, limit = 20 } = {}) {
