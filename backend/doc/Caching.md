@@ -7,7 +7,7 @@
 - Be simple to reason about and test.
 
 ## Architecture: Two-layer cache
-1. **Metadata cache** (JSON or a tiny embedded DB like SQLite):
+1. **Metadata cache** (SQLite):
    - Keyed by **status_id**.
    - Fields: 	`status_id, author_id, acct, created_at, tags[], media_urls[], preview_url, caption, post_url, album_ids[], fetched_at`
    - Indexes on `created_at`, `tags`, `author_id`.

@@ -3,19 +3,22 @@
 # PixelFree Backend
 
 ## Overview
-The PixelFree backend is a Node.js application that acts as the controller for the PixelFree digital photo frame project. It handles authentication with the Pixelfed API, retrieves images, and serves them to a frontend display application. Images can be queried based on hashtags, users, or both. The interface can:
+The PixelFree backend is a Node.js application that acts as the controller for the PixelFree digital photo frame project. It handles authentication with the Pixelfed API, retrieves images, and serves them to a frontend display application. Images can be queried based on hashtags, users, or both. It also has the notion of "virtual albums" that correspond to queries such as:
 
-1. Retrieve images from any of the specified users regardless of how or if they are tagged.
-2. Retrieve images with any|all of the specified hashtags, regardless of which users posted them.
-3. Retrieve images with any|all of the specified hashtags, but only from the specified users.
+* Retrieve images from any of the specified users regardless of how or if they are tagged.
+* Retrieve images with any|all of the specified hashtags, regardless of which users posted them.
+* Retrieve images with any|all of the specified hashtags, but only from the specified users.
 
 A Pixelfed client ID (public) and corresponding client secret have already been obtained for the project.
 
-In the future the backend will be enhanced to provide:
+Work in progress:
 
 * Virtual albums (see [separate document with thoughts on virtual albums](doc/VirtAlbums.md))
-* "Favorites" albums
 * Image caching (see [separate caching strategy document](doc/Caching.md))
+
+Future work:
+
+* "Favorites" albums
 * Time-based queries (e.g. new photos since)
 * Full-coverage unit tests
 
@@ -40,16 +43,18 @@ In the future the backend will be enhanced to provide:
 | Directory  | Purpose |
 |------------|---------|
 | `api`    | Defines HTTP API endpoints and their routing logic. Handles request/response processing for frontend interactions. |
+| `db`     | The persistence layer that supports caching, virtual albums, and metadata storage (SQLite) |
 | `modules`| Holds self-contained feature modules, each responsible for a specific business domain or functionality. |
 | `public` | A small test UI for the backend. Not intended for roduction use. |
-| `server` | The main server initialization and setup code, including Express app creation, middleware registration, and server startup logic. |
+| `scripts` | Test scripts for various aspects of the functionality |
 | `services`| Encapsulates core business logic and external service integrations (e.g., database queries, API calls). |
 | `utils`  | Shared utility functions and helper classes that can be reused across multiple parts of the backend. |
 
 ### Key Files
-- `server.js` — Main entry point; initializes Express server and routes.
-- `.token.json` — Stores OAuth tokens (ignored by Git for security).
-- `.env` — Environment variables (ignored by Git; see `example.env`).
+- `server.js`: Main entry point; initializes Express server and routes.
+- `.token.json`: Stores OAuth tokens (ignored by Git for security).
+- `.env`: Environment variables (ignored by Git; see `example.env`).
+- `pixelfree.db*`: SQLite database files
 
 ## Security Notes
 - **Never commit `.token.json`** — This file contains active OAuth tokens that allow access to a Pixelfed account.

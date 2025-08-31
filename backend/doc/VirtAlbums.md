@@ -1,6 +1,6 @@
 # PixelFree Virtual Albums – Thoughts on Design
 
-This document captures ideas about **Virtual Albums**, starting from the design of the frontend/backend HTTP API, through the internal backend repository interfaces, and other suggested structure.
+This document captures ideas about **Virtual Albums**, starting from the design of the frontend/backend HTTP API, through the internal backend repository interfaces, and other suggested structure. A partial framework for Virtual Albums exists in the code base.
 
 
 ## 1. Public HTTP API (Frontend ⇄ Backend)
