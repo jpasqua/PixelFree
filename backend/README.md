@@ -56,6 +56,14 @@ Future work:
 - `.env`: Environment variables (ignored by Git; see `example.env`).
 - `pixelfree.db*`: SQLite database files
 
+## Notes on the Database Layer
+
+This folder `backend/db` contains the code that manages PixelFree’s local database. The database keeps track of virtual albums (the saved queries defined by users), the photos those albums contain, and the cached media files stored on disk. It also has a simple key–value store for miscellaneous app metadata.
+
+Each table in the database has a matching “repository” file here that hides the SQL details and exposes clean helper functions for the rest of the backend. This makes the code easier to maintain and also prepares us for future changes if we want to move beyond SQLite.
+
+In short: this layer is the memory of the app — it remembers what albums exist, what photos belong to them, and where cached files are located — so that the rest of the backend can stay focused on fetching and serving photos.
+
 ## Security Notes
 - **Never commit `.token.json`** — This file contains active OAuth tokens that allow access to a Pixelfed account.
 - **Never commit `.env`** — This file contains API credentials and must be kept private.
@@ -71,18 +79,34 @@ Notes:
 
 0. **Install tools**
 
-   ```bash
-   # Install git using the command below. You will be prompted for input along the way.
-   winget install --id Git.Git -e --source winget
-   # Now install Node. You will be propted for input along the way.
-   winget install --id OpenJS.NodeJS.LTS -e
-   # The next command is critical in order for `npm` to work:
-   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-   #
-   # Important: Close and re-open your Terminal or the commands won't be found!
-   #
-   ```
- 
+   1. Windows
+
+	   ```bash
+	   # Install git using the command below. You will be prompted for input along the way.
+	   winget install --id Git.Git -e --source winget
+	   # Now install Node. You will be propted for input along the way.
+	   winget install --id OpenJS.NodeJS.LTS -e
+	   # The next command is critical in order for `npm` to work:
+	   Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+	   #
+	   # Important: Close and re-open your Terminal or the commands won't be found!
+	   #
+	   ```
+
+  0. Raspberry Pi
+
+	   ```bash
+	   # Get on the latest version of apt repo and packages.
+		sudo apt update
+		sudo apt upgrade -y
+	   # Install curl if not already done
+	   sudo apt install -y curl
+	   # Enable the NodeSource repository
+		curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+		# Install Node
+		sudo apt install -y nodejs
+	   ```
+   
 1. **Clone the repository**
    
    ```bash
