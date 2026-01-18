@@ -148,7 +148,7 @@ Notes:
 5. **Access the test frontend**
    - Open `http://localhost:3000` in a browser.
 
-Ypu may also find these notes useful for [developing/running the project with VS Code](doc/VSCodeNotes.md).
+You may also find these notes useful for [developing/running the project with VS Code](doc/VSCodeNotes.md).
 
 ## Basic Tests of the Query API
 
